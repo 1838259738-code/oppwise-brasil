@@ -3,12 +3,12 @@ import { prisma } from '../../../lib/db'
 import { v4 as uuidv4 } from 'uuid'
 import OpenAI from 'openai'
 
-const deepseek = new OpenAI({
-  apiKey: process.env.DEEPSEEK_API_KEY,
-  baseURL: 'https://api.deepseek.com',
-})
-
 export async function POST(req: NextRequest) {
+  // 仅运行时检查 API Key
+  if (!process.env.DEEPSEEK_API_KEY) {
+    return NextResponse.json({ error: 'DEEPSEEK_API_KEY not configured' }, { status: 500 })
+  }
+
   try {
     const formData = await req.formData()
     const titel = formData.get('titel') as string
@@ -24,22 +24,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
     }
 
-    // ---------- 内存中处理第一张图片，构建 base64 ----------
+    // --- 内存中处理第一张图片，构建 base64 ---
     const firstFile = files[0]
     const arrayBuffer = await firstFile.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
     const mimeType = firstFile.type || 'image/jpeg'
     const base64Image = buffer.toString('base64')
-
-    // 生成一个虚拟文件名用于记录（但实际不存磁盘）
     const virtualPath = `${uuidv4()}.${mimeType.split('/')[1] || 'jpg'}`
 
-    // ---------- 调用 DeepSeek 分析 ----------
-    let extractedText = ''
-    let priceFindings: any[] = []
-    let strategyTags: string[] = []
-    let aiSummary = ''
+    // --- 在函数内初始化 DeepSeek 客户端 ---
+    const deepseek = new OpenAI({
+      apiKey: process.env.DEEPSEEK_API_KEY,
+      baseURL: 'https://api.deepseek.com',
+    })
 
+    // --- 构建提示词 ---
     const competitorName = wettbewerberId === 1 ? 'Keeta' : 'iFood'
     const prompt = `You are a competitive analyst for Brazilian food delivery apps.
 Analyze the attached screenshot from ${competitorName} in ${stadt}, captured for user profile "${userProfile}".
@@ -52,6 +51,12 @@ Screenshot type: ${screenType}.
 Return your response as a JSON object with keys: extracted_text, price_findings, strategy_tags, ai_summary. 
 Do not include any additional text.`
 
+    let extractedText = ''
+    let priceFindings: any[] = []
+    let strategyTags: string[] = []
+    let aiSummary = ''
+
+    // --- 调用 DeepSeek ---
     try {
       const completion = await deepseek.chat.completions.create({
         model: 'deepseek-chat',
@@ -84,7 +89,7 @@ Do not include any additional text.`
       extractedText = ''
     }
 
-    // ---------- 写入数据库（文件路径仅记录虚拟名，实际上不可访问） ----------
+    // --- 写入数据库 ---
     const record = await prisma.fieldIntel.create({
       data: {
         titel,
@@ -98,12 +103,9 @@ Do not include any additional text.`
         priceFindings: JSON.stringify(priceFindings),
         strategyTags: JSON.stringify(strategyTags),
         aiSummary,
-        dateiPfade: JSON.stringify([virtualPath]),   // 仅供记录
+        dateiPfade: JSON.stringify([virtualPath]),
       },
     })
-
-    // 注意：由于文件未实际存储，预览链接 /uploads/... 将无法访问。
-    // 如需后续查看图片，请集成云存储（如 Cloudinary）。
 
     return NextResponse.json({ success: true, data: record })
   } catch (error: any) {
