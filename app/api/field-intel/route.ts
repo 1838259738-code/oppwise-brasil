@@ -24,20 +24,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
     }
 
-    // --------- 将文件转为 base64，不再写入磁盘 ---------
-    const fileBuffers: { buffer: Buffer; mimeType: string; originalName: string }[] = []
-    for (const file of files) {
-      const buffer = Buffer.from(await file.arrayBuffer())
-      const mimeType = file.type || 'image/jpeg'
-      fileBuffers.push({ buffer, mimeType, originalName: file.name })
-    }
+    // ---------- 内存中处理第一张图片，构建 base64 ----------
+    const firstFile = files[0]
+    const arrayBuffer = await firstFile.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const mimeType = firstFile.type || 'image/jpeg'
+    const base64Image = buffer.toString('base64')
 
-    // 模拟保存路径（存入 DB 用）
-    const savedPaths = fileBuffers.map(() => `${uuidv4()}.jpg`)
-    // 注意：实际文件没有落地，所以 Material Library 里无法预览图片。
-    // 如果需要预览，后续可接云存储；暂时保存路径仅供记录。
+    // 生成一个虚拟文件名用于记录（但实际不存磁盘）
+    const virtualPath = `${uuidv4()}.${mimeType.split('/')[1] || 'jpg'}`
 
-    // --------- 调用 DeepSeek 分析第一张图 ---------
+    // ---------- 调用 DeepSeek 分析 ----------
     let extractedText = ''
     let priceFindings: any[] = []
     let strategyTags: string[] = []
@@ -55,44 +52,39 @@ Screenshot type: ${screenType}.
 Return your response as a JSON object with keys: extracted_text, price_findings, strategy_tags, ai_summary. 
 Do not include any additional text.`
 
-    if (fileBuffers.length > 0) {
-      const { buffer, mimeType } = fileBuffers[0]
-      const base64Image = buffer.toString('base64')
-
-      try {
-        const completion = await deepseek.chat.completions.create({
-          model: 'deepseek-chat', // 若报错不支持图片，可尝试 'deepseek-reasoner'
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                {
-                  type: 'image_url',
-                  image_url: {
-                    url: `data:${mimeType};base64,${base64Image}`,
-                  },
+    try {
+      const completion = await deepseek.chat.completions.create({
+        model: 'deepseek-chat',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`,
                 },
-              ],
-            },
-          ],
-          max_tokens: 1000,
-        })
+              },
+            ],
+          },
+        ],
+        max_tokens: 1000,
+      })
 
-        const content = completion.choices[0].message.content || '{}'
-        const parsed = JSON.parse(content)
-        extractedText = parsed.extracted_text || content
-        priceFindings = parsed.price_findings || []
-        strategyTags = parsed.strategy_tags || []
-        aiSummary = parsed.ai_summary || content
-      } catch (apiError: any) {
-        console.error('DeepSeek API error:', apiError)
-        aiSummary = `AI analysis failed: ${apiError.message || 'Unknown error'}`
-        extractedText = ''
-      }
+      const content = completion.choices[0].message.content || '{}'
+      const parsed = JSON.parse(content)
+      extractedText = parsed.extracted_text || ''
+      priceFindings = parsed.price_findings || []
+      strategyTags = parsed.strategy_tags || []
+      aiSummary = parsed.ai_summary || ''
+    } catch (apiError: any) {
+      console.error('DeepSeek API error:', apiError)
+      aiSummary = `AI analysis failed: ${apiError.message || 'Unknown error'}`
+      extractedText = ''
     }
 
-    // --------- 写入数据库 ---------
+    // ---------- 写入数据库（文件路径仅记录虚拟名，实际上不可访问） ----------
     const record = await prisma.fieldIntel.create({
       data: {
         titel,
@@ -106,9 +98,12 @@ Do not include any additional text.`
         priceFindings: JSON.stringify(priceFindings),
         strategyTags: JSON.stringify(strategyTags),
         aiSummary,
-        dateiPfade: JSON.stringify(savedPaths),
+        dateiPfade: JSON.stringify([virtualPath]),   // 仅供记录
       },
     })
+
+    // 注意：由于文件未实际存储，预览链接 /uploads/... 将无法访问。
+    // 如需后续查看图片，请集成云存储（如 Cloudinary）。
 
     return NextResponse.json({ success: true, data: record })
   } catch (error: any) {
