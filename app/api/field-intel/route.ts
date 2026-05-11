@@ -1,53 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
 import { prisma } from '../../../lib/db'
 import { v4 as uuidv4 } from 'uuid'
 import OpenAI from 'openai'
 
-// 将 OpenAI 客户端指向 DeepSeek
 const deepseek = new OpenAI({
   apiKey: process.env.DEEPSEEK_API_KEY,
   baseURL: 'https://api.deepseek.com',
 })
 
 export async function POST(req: NextRequest) {
-  const formData = await req.formData()
-  const titel = formData.get('titel') as string
-  const wettbewerberId = parseInt(formData.get('wettbewerberId') as string)
-  const stadt = formData.get('stadt') as string
-  const screenType = formData.get('screenType') as string
-  const userProfile = formData.get('userProfile') as string
-  const tags = formData.get('tags') as string || ''
-  const notizen = formData.get('notizen') as string || ''
-  const files = formData.getAll('files') as File[]
+  try {
+    const formData = await req.formData()
+    const titel = formData.get('titel') as string
+    const wettbewerberId = parseInt(formData.get('wettbewerberId') as string)
+    const stadt = formData.get('stadt') as string
+    const screenType = formData.get('screenType') as string
+    const userProfile = formData.get('userProfile') as string
+    const tags = formData.get('tags') as string || ''
+    const notizen = formData.get('notizen') as string || ''
+    const files = formData.getAll('files') as File[]
 
-  const uploadDir = path.join(process.cwd(), 'public', 'uploads')
-  await mkdir(uploadDir, { recursive: true })
+    if (files.length === 0) {
+      return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
+    }
 
-  const savedPaths: string[] = []
-  for (const file of files) {
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const ext = path.extname(file.name)
-    const filename = `${uuidv4()}${ext}`
-    await writeFile(path.join(uploadDir, filename), buffer)
-    savedPaths.push(filename)
-  }
+    // --------- 将文件转为 base64，不再写入磁盘 ---------
+    const fileBuffers: { buffer: Buffer; mimeType: string; originalName: string }[] = []
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer())
+      const mimeType = file.type || 'image/jpeg'
+      fileBuffers.push({ buffer, mimeType, originalName: file.name })
+    }
 
-  let extractedText = ''
-  let priceFindings: any[] = []
-  let strategyTags: string[] = []
-  let aiSummary = ''
+    // 模拟保存路径（存入 DB 用）
+    const savedPaths = fileBuffers.map(() => `${uuidv4()}.jpg`)
+    // 注意：实际文件没有落地，所以 Material Library 里无法预览图片。
+    // 如果需要预览，后续可接云存储；暂时保存路径仅供记录。
 
-  if (savedPaths.length > 0) {
-    const imagePath = path.join(uploadDir, savedPaths[0])
-    const { readFileSync } = await import('fs')
-    const imageBuffer = readFileSync(imagePath)
-    const base64Image = imageBuffer.toString('base64')
-    const mimeType = path.extname(savedPaths[0]).toLowerCase() === '.png' ? 'image/png' : 'image/jpeg'
+    // --------- 调用 DeepSeek 分析第一张图 ---------
+    let extractedText = ''
+    let priceFindings: any[] = []
+    let strategyTags: string[] = []
+    let aiSummary = ''
 
     const competitorName = wettbewerberId === 1 ? 'Keeta' : 'iFood'
-
     const prompt = `You are a competitive analyst for Brazilian food delivery apps.
 Analyze the attached screenshot from ${competitorName} in ${stadt}, captured for user profile "${userProfile}".
 Screenshot type: ${screenType}.
@@ -59,55 +55,64 @@ Screenshot type: ${screenType}.
 Return your response as a JSON object with keys: extracted_text, price_findings, strategy_tags, ai_summary. 
 Do not include any additional text.`
 
-    try {
-      // 调用 DeepSeek 模型（支持视觉的 deepseek-chat 或 deepseek-reasoner）
-      const completion = await deepseek.chat.completions.create({
-        model: 'deepseek-chat',
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
+    if (fileBuffers.length > 0) {
+      const { buffer, mimeType } = fileBuffers[0]
+      const base64Image = buffer.toString('base64')
+
+      try {
+        const completion = await deepseek.chat.completions.create({
+          model: 'deepseek-chat', // 若报错不支持图片，可尝试 'deepseek-reasoner'
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: `data:${mimeType};base64,${base64Image}`,
+                  },
                 },
-              },
-            ],
-          },
-        ],
-        max_tokens: 1000,
-      })
+              ],
+            },
+          ],
+          max_tokens: 1000,
+        })
 
-      const content = completion.choices[0].message.content || '{}'
-      const parsed = JSON.parse(content)
-      extractedText = parsed.extracted_text || ''
-      priceFindings = parsed.price_findings || []
-      strategyTags = parsed.strategy_tags || []
-      aiSummary = parsed.ai_summary || ''
-    } catch (error) {
-      console.error('DeepSeek Vision error:', error)
-      extractedText = 'AI analysis failed, please retry.'
+        const content = completion.choices[0].message.content || '{}'
+        const parsed = JSON.parse(content)
+        extractedText = parsed.extracted_text || content
+        priceFindings = parsed.price_findings || []
+        strategyTags = parsed.strategy_tags || []
+        aiSummary = parsed.ai_summary || content
+      } catch (apiError: any) {
+        console.error('DeepSeek API error:', apiError)
+        aiSummary = `AI analysis failed: ${apiError.message || 'Unknown error'}`
+        extractedText = ''
+      }
     }
+
+    // --------- 写入数据库 ---------
+    const record = await prisma.fieldIntel.create({
+      data: {
+        titel,
+        wettbewerberId,
+        stadt,
+        screenType,
+        userProfile,
+        tags,
+        notizen,
+        extractedText,
+        priceFindings: JSON.stringify(priceFindings),
+        strategyTags: JSON.stringify(strategyTags),
+        aiSummary,
+        dateiPfade: JSON.stringify(savedPaths),
+      },
+    })
+
+    return NextResponse.json({ success: true, data: record })
+  } catch (error: any) {
+    console.error('Field Intel upload error:', error)
+    return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 })
   }
-
-  const record = await prisma.fieldIntel.create({
-    data: {
-      titel,
-      wettbewerberId,
-      stadt,
-      screenType,
-      userProfile,
-      tags,
-      dateiPfade: JSON.stringify(savedPaths),
-      notizen,
-      extractedText,
-      priceFindings: JSON.stringify(priceFindings),
-      strategyTags: JSON.stringify(strategyTags),
-      aiSummary,
-    },
-  })
-
-  return NextResponse.json({ success: true, data: record })
 }
