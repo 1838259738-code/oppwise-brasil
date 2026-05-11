@@ -1,0 +1,35 @@
+{
+  "name": "oppwise-brasil",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:migrate": "prisma migrate dev --name init",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "next": "14.2.5",
+    "react": "^18",
+    "react-dom": "^18",
+    "prisma": "^5.22.0",
+    "@prisma/client": "^5.22.0",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12",
+    "formidable": "^3.5.1",
+    "uuid": "^9.0.0",
+    "lucide-react": "^0.379.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/uuid": "^9",
+    "typescript": "^5",
+    "tailwindcss": "^3.4.0",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tsx": "^4.11.0"
+  }
+}
