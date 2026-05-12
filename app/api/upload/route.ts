@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
-import { prisma } from '../../../../lib/db';
+import { prisma } from '../../../lib/db';
 
 export async function POST(req: NextRequest) {
   try {
