@@ -23,25 +23,33 @@ export default function UploadPage() {
     setUploading(true)
     setError('')
 
+    // 构建表单数据
     const formData = new FormData()
+    // 目前后端仅处理单文件，我们取第一个文件上传
+    formData.append('file', files[0]) 
     formData.append('titel', titel)
     formData.append('beschreibung', beschreibung)
     formData.append('wettbewerberId', wettbewerber)
     formData.append('kategorieId', kategorie)
     formData.append('aufnahmeDatum', aufnahmeDatum)
-    Array.from(files).forEach(file => formData.append('files', file))
 
     try {
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      if (res.ok) {
+      const res = await fetch('/api/upload', { 
+        method: 'POST', 
+        body: formData 
+      })
+      
+      const result = await res.json()
+
+      if (res.ok && result.success) {
+        // 上传成功后跳转到库页面，查看 iFood/KeeTa 调研结果
         router.push('/library')
         router.refresh()
       } else {
-        const msg = await res.text()
-        setError(msg)
+        setError(result.error || 'Upload failed')
       }
     } catch (err) {
-      setError('Network error')
+      setError('Network error, please check connection')
     } finally {
       setUploading(false)
     }
@@ -50,12 +58,12 @@ export default function UploadPage() {
   return (
     <div className="max-w-xl mx-auto">
       <h2 className="text-2xl font-bold mb-6">Upload Material</h2>
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow space-y-4">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow space-y-4 border border-db-border">
         <div>
           <label className="block text-sm font-medium mb-1">Title *</label>
           <input
             type="text" value={titel} onChange={e => setTitel(e.target.value)}
-            className="w-full border border-db-border rounded px-3 py-2"
+            className="w-full border border-db-border rounded px-3 py-2 focus:ring-1 focus:ring-db-red outline-none"
             placeholder="Title (CN, EN, PT possible)"
           />
         </div>
@@ -63,14 +71,15 @@ export default function UploadPage() {
           <label className="block text-sm font-medium mb-1">Description</label>
           <textarea
             value={beschreibung} onChange={e => setBeschreibung(e.target.value)}
-            className="w-full border border-db-border rounded px-3 py-2" rows={3}
+            className="w-full border border-db-border rounded px-3 py-2 focus:ring-1 focus:ring-db-red outline-none" 
+            rows={3}
             placeholder="Optional description"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Competitor *</label>
-            <select value={wettbewerber} onChange={e => setWettbewerber(e.target.value)} className="w-full border border-db-border rounded px-3 py-2">
+            <select value={wettbewerber} onChange={e => setWettbewerber(e.target.value)} className="w-full border border-db-border rounded px-3 py-2 outline-none">
               <option value="1">Keeta</option>
               <option value="2">iFood</option>
               <option value="3">Both</option>
@@ -78,7 +87,7 @@ export default function UploadPage() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Category *</label>
-            <select value={kategorie} onChange={e => setKategorie(e.target.value)} className="w-full border border-db-border rounded px-3 py-2">
+            <select value={kategorie} onChange={e => setKategorie(e.target.value)} className="w-full border border-db-border rounded px-3 py-2 outline-none">
               <option value="1">Price Action</option>
               <option value="2">Coupon</option>
               <option value="3">Expansion</option>
@@ -93,29 +102,28 @@ export default function UploadPage() {
           <label className="block text-sm font-medium mb-1">Date of Capture *</label>
           <input
             type="date" value={aufnahmeDatum} onChange={e => setAufnahmeDatum(e.target.value)}
-            className="w-full border border-db-border rounded px-3 py-2"
+            className="w-full border border-db-border rounded px-3 py-2 outline-none"
           />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Upload Files *</label>
-          {/* 👇 唯一的修改：在这里加了 relative */}
-          <div className="relative border-2 border-dashed border-db-border rounded p-6 text-center cursor-pointer hover:bg-db-light">
+          <div className="relative border-2 border-dashed border-db-border rounded p-6 text-center cursor-pointer hover:bg-db-light transition-colors">
             <UploadCloud className="mx-auto text-db-gray mb-2" />
-            <p className="text-sm text-db-gray">PNG, JPG, PDF, DOCX (max 5 files)</p>
+            <p className="text-sm text-db-gray">PNG, JPG, PDF (max 5 files)</p>
             <input
               type="file" multiple accept="image/*,.pdf,.docx"
               onChange={e => setFiles(e.target.files)}
-              className="absolute inset-0 opacity-0" style={{ cursor: 'pointer' }}
+              className="absolute inset-0 opacity-0 cursor-pointer"
             />
           </div>
-          {files && <p className="text-sm mt-1">{files.length} file(s) selected</p>}
+          {files && <p className="text-sm mt-1 text-db-red font-medium">{files.length} file(s) selected</p>}
         </div>
-        {error && <p className="text-db-red text-sm">{error}</p>}
+        {error && <p className="text-db-red text-sm font-bold">{error}</p>}
         <button
           type="submit" disabled={uploading}
-          className="w-full bg-db-red text-white py-2 rounded font-medium hover:bg-red-700 disabled:opacity-50"
+          className="w-full bg-db-red text-white py-2 rounded font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
         >
-          {uploading ? 'Uploading...' : 'Upload'}
+          {uploading ? 'Processing...' : 'Upload'}
         </button>
       </form>
     </div>
