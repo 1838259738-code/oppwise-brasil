@@ -8,19 +8,18 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
     
-    // 获取上传的文件列表，统一使用 'files' 键名以对齐前端
+    // 获取上传的文件列表，统一使用 'files' 键名
     const files = formData.getAll('files') as File[]
     const wettbewerberId = formData.get('wettbewerberId')
     const kategorieId = formData.get('kategorieId')
     const titel = formData.get('titel') as string
     const beschreibung = formData.get('beschreibung') as string
 
-    // 校验文件是否存在
     if (files.length === 0) {
       return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
     }
 
-    // 模拟存储路径（实际生产环境建议对接 Supabase Storage）
+    // 模拟存储路径
     const virtualPath = `upload_${Date.now()}_${files[0].name}`
 
     // 将情报素材插入 Supabase 数据库
@@ -39,9 +38,11 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
+    // --- 修复点：确保变量名一致性 ---
     if (error) {
       console.error('[Supabase DB Error]:', error)
-      return NextResponse.json({ error: dbError.message }, { status: 500 })
+      // 原来的代码这里误写成了 dbError.message
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data })
