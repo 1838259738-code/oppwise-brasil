@@ -1,49 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-// 强制动态渲染，防止 Vercel 在 Build 阶段试图连接数据库
+// 强制动态渲染，确保 Vercel 构建时不会因为缺少环境变量或数据库连接而崩溃
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
+    
+    // 获取上传的文件列表，统一使用 'files' 键名以对齐前端
     const files = formData.getAll('files') as File[]
     const wettbewerberId = formData.get('wettbewerberId')
     const kategorieId = formData.get('kategorieId')
     const titel = formData.get('titel') as string
     const beschreibung = formData.get('beschreibung') as string
 
+    // 校验文件是否存在
     if (files.length === 0) {
       return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
     }
 
-    // 1. 在实际业务中，这里通常会将图片上传到 Supabase Storage
-    // 目前为了逻辑跑通，我们先模拟一个文件 URL 存入数据库
+    // 模拟存储路径（实际生产环境建议对接 Supabase Storage）
     const virtualPath = `upload_${Date.now()}_${files[0].name}`
 
-    // 2. 插入数据到 Supabase (完全取代 prisma.material.create)
+    // 将情报素材插入 Supabase 数据库
     const { data, error } = await supabase
       .from('materials')
       .insert([
         {
-          titel,
-          beschreibung,
+          titel: titel || 'Untitled Intelligence',
+          beschreibung: beschreibung || '',
           competitor_id: wettbewerberId ? parseInt(wettbewerberId as string) : null,
           category_id: kategorieId ? parseInt(kategorieId as string) : null,
-          url: virtualPath, // 线上建议存公网链接
+          url: virtualPath,
           aufnahmeDatum: new Date().toISOString(),
         }
       ])
       .select()
+      .single()
 
     if (error) {
-      console.error('[Supabase Upload Error]:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[Supabase DB Error]:', error)
+      return NextResponse.json({ error: dbError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data })
   } catch (err: any) {
-    console.error('[Upload Pipeline Crash]:', err)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+    console.error('[Upload API Crash]:', err)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
