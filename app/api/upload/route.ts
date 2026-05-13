@@ -2,7 +2,6 @@ import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js'; // 确保你安装了 supabase-js
 
-export const runtime = 'edge';
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
