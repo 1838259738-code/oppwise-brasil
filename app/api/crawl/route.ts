@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import axios from 'axios'
 import * as cheerio from 'cheerio'
 import { supabase } from '@/lib/supabase' // 确保这里使用的是我们新配好的 Supabase 路径
+export const dynamic = 'force-dynamic'
 
 export async function POST() {
   // 1. 获取所有激活的 RSS 数据源 (对应 Operatix-B 的双轨情报流：自动采集)

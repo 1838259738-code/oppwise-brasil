@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import DatenquellenClient from './DatenquellenClient'
+export const dynamic = 'force-dynamic'
 
 export default async function DataSourcesPage() {
   // 1. 防弹查询函数：自动处理表名不存在的情况

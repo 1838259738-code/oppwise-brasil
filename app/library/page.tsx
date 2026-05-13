@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import BibliothekClient from './BibliothekClient'
+export const dynamic = 'force-dynamic'
 
 export default async function LibraryPage() {
   /**

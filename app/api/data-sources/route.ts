@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-
+export const dynamic = 'force-dynamic'
 // 获取所有数据源
 export async function GET() {
   // 增加容错：优先查英文表名，查不到则回退到旧德文表名

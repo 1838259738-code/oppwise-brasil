@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+export const dynamic = 'force-dynamic'
 
 // 1. 获取关键词列表
 export async function GET() {

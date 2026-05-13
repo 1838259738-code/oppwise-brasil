@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import AnalysenClient from './AnalysenClient'
+export const dynamic = 'force-dynamic'
 
 export default async function CompetitiveAnalysisPage() {
   // 1. 封装一个“防弹”查询函数：即使某张表没建好，或者字段名不对，页面也绝对不会崩溃白屏
