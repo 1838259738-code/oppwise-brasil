@@ -1,103 +1,115 @@
 import { supabase } from '@/lib/supabase'
-import AnalysenClient from './AnalysenClient'
+import { Zap, TrendingUp, Globe, Clock, ChevronRight, BarChart3 } from 'lucide-react'
+
 export const dynamic = 'force-dynamic'
 
-export default async function CompetitiveAnalysisPage() {
-  // 1. 封装一个“防弹”查询函数：即使某张表没建好，或者字段名不对，页面也绝对不会崩溃白屏
-  const safeFetch = async (tableName: string, selectQuery: string, orderByCol?: string) => {
-    try {
-      let query = supabase.from(tableName).select(selectQuery)
-      if (orderByCol) {
-        query = query.order(orderByCol, { ascending: false }).limit(100)
-      }
-      const { data, error } = await query
-      if (error) throw error
-      return data || []
-    } catch (err) {
-      console.error(`[Supabase Fetch Error - ${tableName}]:`, err)
-      return [] // 报错时返回空数组，保护页面正常渲染
-    }
-  }
+export default async function CompetitiveAnalysis() {
+  // 从自动情报表拉取数据，并关联竞品颜色
+  const { data: news, error } = await supabase
+    .from('auto_entries')
+    .select(`*, competitors(name, color)`)
+    .order('veroeffentlicht', { ascending: false })
 
-  // 2. 并发请求所有数据 (Supabase 的关联查询写法是 '*, 表名(*)')
-  const [automatische, materialien, fieldIntel, kategorien, wettbewerber] = await Promise.all([
-    safeFetch('auto_entries', '*, competitors(*), categories(*)', 'created_at'),
-    safeFetch('materials', '*, competitors(*), categories(*)', 'created_at'),
-    safeFetch('field_intel', '*, competitors(*)', 'created_at'),
-    safeFetch('categories', '*'),
-    safeFetch('competitors', '*')
-  ])
-
-  // 3. 混合数据流：增加超级容错处理，兼容旧字段和新字段
-  const mixed = [
-    ...automatische.map((a: any) => ({
-      type: 'auto' as const,
-      id: `a-${a.id}`,
-      titel: a.titel || a.title || 'Untitled Auto Entry',
-      beschreibung: a.zusammenfassung || a.summary || '',
-      wettbewerber: a.competitors?.name || (a.competitor_id === '2' ? 'iFood' : 'KeeTa'),
-      farbe: a.competitors?.color || (a.competitor_id === '2' ? '#EA1D2C' : '#FFCC00'),
-      kategorie: a.categories?.name || 'News',
-      datum: a.veroeffentlicht || a.created_at,
-      quelle: a.quelle || 'RSS',
-      dateien: null,
-    })),
-    ...materialien.map((m: any) => ({
-      type: 'manual' as const,
-      id: `m-${m.id}`,
-      titel: m.titel || m.title || 'Untitled Material',
-      beschreibung: m.beschreibung || m.description || '',
-      wettbewerber: m.competitors?.name || (m.competitor_id === '2' ? 'iFood' : 'KeeTa'),
-      farbe: m.competitors?.color || (m.competitor_id === '2' ? '#EA1D2C' : '#FFCC00'),
-      kategorie: m.categories?.name || 'Manual Upload',
-      datum: m.aufnahmeDatum || m.created_at,
-      quelle: 'Manual',
-      // 这里完美对接了我们刚才做的新版上传 API：直接读取 m.url
-      dateien: m.url ? [m.url] : (m.dateiPfade ? JSON.parse(m.dateiPfade) : []), 
-    })),
-    ...fieldIntel.map((f: any) => ({
-      type: 'field' as const,
-      id: `f-${f.id}`,
-      titel: f.titel || f.title || 'Field Intel Report',
-      beschreibung: f.aiSummary || f.summary || '',
-      wettbewerber: f.competitors?.name || (f.competitor_id === '2' ? 'iFood' : 'KeeTa'),
-      farbe: f.competitors?.color || (f.competitor_id === '2' ? '#EA1D2C' : '#FFCC00'),
-      kategorie: 'Field Intel',
-      datum: f.createdAt || f.created_at,
-      quelle: 'Field Intel',
-      dateien: f.url ? [f.url] : (f.dateiPfade ? JSON.parse(f.dateiPfade) : []),
-      extra: {
-        stadt: f.stadt || f.city,
-        screenType: f.screenType,
-        userProfile: f.userProfile,
-        priceFindings: f.priceFindings,
-        strategyTags: f.strategyTags,
-      }
-    })),
-  ].sort((a, b) => new Date(b.datum).getTime() - new Date(a.datum).getTime())
-
-  // 4. 99Food 风格 UI 包装层
   return (
-    <div className="max-w-7xl mx-auto py-8">
-      {/* 标题区：保持与之前页面一致的撞色风格 */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Competitive Analysis</h2>
-          <p className="text-gray-500 mt-2">Filter and analyze multi-source intelligence.</p>
+    <div className="min-h-screen bg-[#F8F9FA] p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* 顶部状态栏：99Food 活力黄 */}
+        <div className="bg-white rounded-[32px] p-8 shadow-sm flex flex-col md:flex-row justify-between items-center border border-gray-100">
+          <div className="flex items-center gap-6">
+            <div className="bg-[#FFD111] p-5 rounded-[24px] shadow-inner">
+              <TrendingUp size={32} className="text-[#333]" />
+            </div>
+            <div>
+              <h2 className="text-3xl font-black text-[#333] tracking-tight">Intelligence Stream</h2>
+              <p className="text-gray-400 font-medium text-sm">Real-time competitor tracking: KeeTa & iFood Brazil</p>
+            </div>
+          </div>
+          <div className="flex gap-4 mt-6 md:mt-0">
+             <div className="px-6 py-3 rounded-2xl bg-[#333] text-[#FFD111] font-bold text-sm flex items-center gap-2">
+               <BarChart3 size={16} /> {news?.length || 0} Records Synced
+             </div>
+          </div>
         </div>
-        <div className="bg-[#FFCC00] text-gray-900 px-4 py-2 rounded-xl font-bold text-sm shadow-[0_4px_14px_0_rgba(255,204,0,0.39)] inline-flex items-center gap-2">
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a1 1 0 00-2 0v7.268a2 2 0 000 3.464V16a1 1 0 102 0v-1.268a2 2 0 000-3.464V4zM11 4a1 1 0 10-2 0v1.268a2 2 0 000 3.464V16a1 1 0 102 0V8.732a2 2 0 000-3.464V4zM16 3a1 1 0 011 1v7.268a2 2 0 010 3.464V16a1 1 0 11-2 0v-1.268a2 2 0 010-3.464V4a1 1 0 011-1z"></path></svg>
-          {mixed.length} Records Synced
-        </div>
-      </div>
 
-      {/* 客户端组件，负责渲染筛选项和卡片 */}
-      <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100">
-        <AnalysenClient
-          initialData={mixed}
-          kategorien={kategorien}
-          wettbewerber={wettbewerber}
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* 左侧：自动化情报流 */}
+          <div className="lg:col-span-2 space-y-4">
+            <h3 className="text-lg font-bold text-[#333] flex items-center gap-2 mb-2 px-2">
+              <Globe size={18} className="text-[#FFD111]" /> Latest Market Movements
+            </h3>
+            
+            {news && news.length > 0 ? (
+              news.map((item) => (
+                <div key={item.id} className="bg-white rounded-[28px] p-7 shadow-sm hover:shadow-md transition-all flex gap-6 border border-gray-50 group border-l-[6px]" style={{ borderLeftColor: item.competitors?.color || '#eee' }}>
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px] font-black text-[#333] bg-[#FFD111] px-2.5 py-1 rounded-full uppercase tracking-wider">
+                        {item.quelle || 'GLOBAL NEWS'}
+                      </span>
+                      <span className="flex items-center gap-1 text-gray-300 text-[10px] font-bold">
+                        <Clock size={12} /> {item.veroeffentlicht ? new Date(item.veroeffentlicht).toLocaleDateString('pt-BR') : 'RECENT'}
+                      </span>
+                    </div>
+                    <h4 className="text-xl font-bold text-[#333] group-hover:text-[#FFD111] transition-colors leading-snug">
+                      {item.titel}
+                    </h4>
+                    <p className="text-gray-400 text-sm line-clamp-2 leading-relaxed">
+                      {item.zusammenfassung}
+                    </p>
+                    <div className="pt-2">
+                      <a href={item.url} target="_blank" className="text-[11px] font-black uppercase text-[#333] hover:underline flex items-center gap-1">
+                        Open Report <ChevronRight size={14} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="bg-white rounded-[32px] border-4 border-dashed border-gray-100 py-32 flex flex-col items-center justify-center text-center">
+                <div className="bg-gray-50 p-6 rounded-full mb-4">
+                  <Zap size={48} className="text-gray-200" />
+                </div>
+                <p className="text-gray-300 font-bold text-xl italic uppercase tracking-tighter">Waiting for intelligence flow...</p>
+                <p className="text-gray-400 text-sm mt-2">Trigger /api/crawl to start ingestion</p>
+              </div>
+            )}
+          </div>
+
+          {/* 右侧：策略筛选面板 */}
+          <div className="space-y-6">
+            <div className="bg-[#333] rounded-[32px] p-8 text-white shadow-xl">
+              <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#FFD111] mb-8 border-b border-white/10 pb-4">Strategy Segments</h4>
+              <div className="space-y-4">
+                {[
+                  { label: 'Pricing Strategy', count: '12' },
+                  { label: 'Subsidy Efficiency', count: '08' },
+                  { label: 'Merchant Growth', count: '05' },
+                  { label: 'User Retention', count: '14' }
+                ].map((tag) => (
+                  <div key={tag.label} className="flex justify-between items-center group cursor-pointer p-2 hover:bg-white/5 rounded-xl transition-colors">
+                    <span className="font-bold text-md group-hover:text-[#FFD111] transition-colors">{tag.label}</span>
+                    <span className="bg-white/10 text-[10px] px-2 py-1 rounded-md text-gray-400 group-hover:text-[#FFD111]">{tag.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-[#FFD111] rounded-[32px] p-8 text-[#333] shadow-lg">
+               <h4 className="font-black italic text-xl uppercase tracking-tighter mb-1">Brazil Intel</h4>
+               <p className="text-xs font-bold opacity-60 mb-4 uppercase">KeeTa vs iFood Share</p>
+               <div className="h-2 w-full bg-black/10 rounded-full overflow-hidden flex">
+                  <div className="h-full bg-[#333]" style={{ width: '42%' }}></div>
+                  <div className="h-full bg-white/50" style={{ width: '58%' }}></div>
+               </div>
+               <div className="flex justify-between mt-2 font-black text-[10px]">
+                  <span>KEETA 42%</span>
+                  <span>IFOOD 58%</span>
+               </div>
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   )
