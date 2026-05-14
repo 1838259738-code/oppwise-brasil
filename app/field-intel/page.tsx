@@ -1,104 +1,131 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+'use client'
 
-export const dynamic = 'force-dynamic'
+import { useState } from 'react'
+import { UploadCloud, Zap, Target, MapPin, CheckCircle2 } from 'lucide-react'
 
-export async function POST(req: NextRequest) {
-  console.log('🚀 [Step 1] API Hit! Starting field-intel process...')
+export default function FieldIntelPage() {
+  const [file, setFile] = useState<File | null>(null)
+  const [formData, setFormData] = useState({
+    title: '', competitorId: '1', city: 'São Paulo', screenType: 'Checkout Page', userProfile: 'New User', tags: '', notes: ''
+  })
+  const [isUploading, setIsUploading] = useState(false)
+  const [aiResult, setAiResult] = useState<any>(null)
 
-  try {
-    const formData = await req.formData()
-    console.log('✅ [Step 2] FormData parsed successfully.')
-
-    const files = formData.getAll('files') as File[]
-    const title = formData.get('title') as string
-    const competitorId = formData.get('competitorId') as string
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!file) return alert('Please upload a screenshot first!')
     
-    console.log(`📦 [Step 3] Received data: Title=${title}, Files count=${files.length}, CompId=${competitorId}`)
+    setIsUploading(true)
+    setAiResult(null)
 
-    if (!files || files.length === 0) {
-      console.log('❌ [Error] No files found in request.')
-      return NextResponse.json({ error: 'No screenshot uploaded' }, { status: 400 })
-    }
+    const data = new FormData()
+    data.append('files', file)
+    Object.entries(formData).forEach(([key, value]) => data.append(key, value))
 
-    const file = files[0]
-    const fileExt = file.name.split('.').pop()
-    const fileName = `field_${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
-    const filePath = `uploads/${fileName}`
-
-    // 将 File 转为 Buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    console.log('✅ [Step 4] File converted to buffer. Uploading to Supabase Storage...')
-
-    const { error: storageError } = await supabase.storage
-      .from('intelligence')
-      .upload(filePath, buffer, { contentType: file.type, upsert: true })
-
-    if (storageError) {
-      console.error('❌ [Storage Error]:', storageError)
-      throw new Error(`Storage upload failed: ${storageError.message}`)
-    }
-
-    const { data: { publicUrl } } = supabase.storage.from('intelligence').getPublicUrl(filePath)
-    console.log('✅ [Step 5] Storage upload successful. Public URL:', publicUrl)
-
-    // AI 部分
-    let aiSummary = "AI analysis skipped for debugging."
-    const apiKey = process.env.DEEPSEEK_API_KEY
-    
-    console.log(`🤖 [Step 6] Starting DeepSeek API call. Key present? ${!!apiKey}`)
-
-    if (apiKey) {
-      try {
-        const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: "deepseek-chat",
-            messages: [{ role: "user", content: `Write a 10-word summary for: ${title}` }],
-            temperature: 0.3
-          }),
-          signal: AbortSignal.timeout(8000) 
-        })
-
-        if (!dsResponse.ok) {
-          const errText = await dsResponse.text()
-          console.error('❌ [DeepSeek API Error]:', errText)
-          aiSummary = `DeepSeek Error: ${dsResponse.status}`
-        } else {
-          const dsData = await dsResponse.json()
-          aiSummary = dsData.choices[0].message.content.trim()
-          console.log('✅ [Step 7] DeepSeek success! Summary:', aiSummary)
-        }
-      } catch (aiError) {
-        console.error('❌ [DeepSeek Catch Error]:', aiError)
-        aiSummary = "DeepSeek API failed or timed out."
+    try {
+      // 这里去呼叫我们真正的后端 API
+      const res = await fetch('/api/field-intel', { method: 'POST', body: data })
+      const result = await res.json()
+      
+      if (result.success) {
+        setAiResult(result.data)
+        setFile(null)
+      } else {
+        alert('Upload failed: ' + result.error)
       }
+    } catch (err) {
+      alert('Network error occurred.')
+    } finally {
+      setIsUploading(false)
     }
-
-    console.log('💾 [Step 8] Writing to Supabase database...')
-    
-    const { data: fieldData, error: fieldError } = await supabase
-      .from('field_intel')
-      .insert([{
-        titel: title || 'Untitled Field Intel',
-        competitor_id: parseInt(competitorId) || 1,
-        url: publicUrl,
-        ai_summary: aiSummary,
-        created_at: new Date().toISOString()
-      }]).select().single()
-
-    if (fieldError) {
-       console.error('❌ [DB Field Intel Error]:', fieldError)
-       throw fieldError
-    }
-
-    console.log('🎉 [Step 9] All done! Returning success.')
-    return NextResponse.json({ success: true, data: fieldData })
-
-  } catch (err: any) {
-    console.error('💥 [FATAL CRASH]:', err)
-    return NextResponse.json({ error: err.message || 'Unknown Server Error' }, { status: 500 })
   }
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        
+        {/* Header */}
+        <div className="bg-white rounded-[32px] p-8 shadow-sm flex items-center gap-6 border border-gray-100">
+          <div className="bg-[#FFD111] p-4 rounded-[24px] shadow-inner">
+             <Target size={32} className="text-[#333]" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-black text-[#333] tracking-tight">Field Intel Upload</h2>
+            <p className="text-gray-400 font-medium mt-1">Submit raw competitor screenshots for DeepSeek AI analysis</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 左侧：情报提交表单 */}
+          <form onSubmit={handleSubmit} className="bg-white rounded-[32px] p-8 shadow-sm border border-gray-100 space-y-6">
+            
+            <div className={`relative border-2 border-dashed rounded-[24px] p-10 text-center transition-all ${file ? 'border-[#FFD111] bg-[#FFD111]/10' : 'border-gray-300 hover:border-[#FFD111] bg-gray-50'}`}>
+              <input type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept="image/*" />
+              {file ? (
+                <div className="flex flex-col items-center"><CheckCircle2 className="text-[#FFD111] mb-2" size={32} /><span className="font-bold text-[#333]">{file.name}</span></div>
+              ) : (
+                <div className="flex flex-col items-center text-gray-400"><UploadCloud size={32} className="mb-2" /><span className="font-bold">Drop intelligence screenshot here</span></div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+               <div className="space-y-2 col-span-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Intel Title</label>
+                 <input required value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]" placeholder="e.g. iFood Lunch Subsidy" />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Competitor</label>
+                 <select value={formData.competitorId} onChange={e => setFormData({...formData, competitorId: e.target.value})} className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]">
+                   <option value="1">KeeTa</option><option value="2">iFood</option>
+                 </select>
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">City</label>
+                 <input value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]" />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Screen Context</label>
+                 <input value={formData.screenType} onChange={e => setFormData({...formData, screenType: e.target.value})} className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]" />
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Operation Tags</label>
+                 <input value={formData.tags} onChange={e => setFormData({...formData, tags: e.target.value})} placeholder="e.g. Free Delivery" className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]" />
+               </div>
+               <div className="space-y-2 col-span-2">
+                 <label className="text-xs font-black uppercase text-gray-400 tracking-widest">Field Notes</label>
+                 <textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} rows={3} className="w-full bg-gray-50 p-4 rounded-xl font-bold outline-none focus:ring-2 focus:ring-[#FFD111]" />
+               </div>
+            </div>
+
+            <button type="submit" disabled={isUploading} className={`w-full py-5 rounded-[20px] font-black uppercase tracking-widest text-sm transition-all flex items-center justify-center gap-2 ${isUploading ? 'bg-gray-200 text-gray-400' : 'bg-[#333] text-[#FFD111] hover:bg-black hover:shadow-xl hover:-translate-y-1'}`}>
+              {isUploading ? 'Extracting via DeepSeek...' : <><Zap size={18} /> Upload & Analyze</>}
+            </button>
+          </form>
+
+          {/* 右侧：AI 结果控制台 */}
+          <div className="bg-[#333] rounded-[32px] p-8 shadow-xl text-white">
+            <h4 className="text-[#FFD111] font-black text-xs uppercase tracking-[0.2em] mb-8 border-b border-white/10 pb-4">DeepSeek Neural Engine</h4>
+            
+            {aiResult ? (
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="bg-white/10 p-6 rounded-2xl border border-white/5">
+                  <p className="text-xs font-black text-gray-400 mb-2 uppercase">Strategic Summary</p>
+                  <p className="text-xl font-bold leading-relaxed">{aiResult.ai_summary}</p>
+                </div>
+                <div className="flex items-center justify-between text-xs font-bold text-gray-400 bg-black/20 p-4 rounded-xl">
+                  <span>Intel ID: {aiResult.id}</span>
+                  <span className="text-green-400 flex items-center gap-1"><CheckCircle2 size={14}/> Synced to Hub</span>
+                </div>
+              </div>
+            ) : (
+              <div className="h-64 flex flex-col items-center justify-center text-center opacity-50">
+                <Zap size={48} className="mb-4 text-gray-500" />
+                <p className="font-bold uppercase tracking-widest">Waiting for field input</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }

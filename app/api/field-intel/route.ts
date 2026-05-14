@@ -21,9 +21,7 @@ export async function POST(req: NextRequest) {
 
     const file = files[0]
 
-    // ==========================================
-    // 1. 真实上传图片到 Supabase 存储桶
-    // ==========================================
+    // 1. 真实上传图片到 Supabase
     const fileExt = file.name.split('.').pop()
     const fileName = `field_${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
     const filePath = `uploads/${fileName}`
@@ -37,14 +35,11 @@ export async function POST(req: NextRequest) {
 
     if (storageError) throw new Error('Image storage upload failed')
 
-    // 获取真实公网链接
     const { data: { publicUrl } } = supabase.storage.from('intelligence').getPublicUrl(filePath)
     const competitorName = competitorId === '1' ? 'KeeTa' : 'iFood'
 
-    // ==========================================
-    // 🧠 2. 安全调用 DeepSeek (带超时和防崩溃)
-    // ==========================================
-    let aiSummary = "AI analysis failed, but record was successfully saved."
+    // 2. 调用 DeepSeek AI
+    let aiSummary = "AI analysis failed, but record was saved."
     const apiKey = process.env.DEEPSEEK_API_KEY
     
     if (apiKey) {
@@ -60,7 +55,6 @@ export async function POST(req: NextRequest) {
             messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
             temperature: 0.3
           }),
-          // 设置 8 秒超时，防止 Vercel 强杀进程
           signal: AbortSignal.timeout(8000) 
         })
 
@@ -69,18 +63,13 @@ export async function POST(req: NextRequest) {
           aiSummary = dsData.choices[0].message.content.trim()
         }
       } catch (aiError) {
-        console.error('[DeepSeek Blocked/Timeout]:', aiError)
-        aiSummary = "DeepSeek AI timeout. Please check your API key or try again later."
+        aiSummary = "DeepSeek AI timeout or error."
       }
     } else {
       aiSummary = "DeepSeek API Key is missing in Vercel environment."
     }
 
-    // ==========================================
-    // 💾 3. 核心功能：双写数据库 (写进 Field Intel + Intelligence Hub)
-    // ==========================================
-    
-    // A. 写入 Field Intel 专用表
+    // 3. 写入数据库
     const { data: fieldData, error: fieldError } = await supabase
       .from('field_intel')
       .insert([{
@@ -91,14 +80,14 @@ export async function POST(req: NextRequest) {
         user_profile: userProfile,
         tags: tags,
         notizen: notes,
-        url: publicUrl, // 存入真实图片
+        url: publicUrl,
         ai_summary: aiSummary,
         created_at: new Date().toISOString()
       }]).select().single()
 
     if (fieldError) throw fieldError
 
-    // B. 静默同步到 materials 表，这样你的 Intelligence Hub 也能看到它！
+    // 同步到 materials 表 (Intelligence Hub)
     await supabase.from('materials').insert([{
       titel: `[Field Intel] ${title}`,
       beschreibung: aiSummary,
@@ -110,7 +99,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: fieldData })
 
   } catch (err: any) {
-    console.error('[Field Intel Crash]:', err)
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
