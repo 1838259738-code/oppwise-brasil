@@ -1,14 +1,52 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Zap, TrendingUp, Globe, Clock, ChevronRight, BarChart3 } from 'lucide-react'
+import { Zap, TrendingUp, Globe, Clock, ChevronRight, BarChart3, RefreshCw } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
+export default function CompetitiveAnalysis() {
+  const [news, setNews] = useState<any[]>([])
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
-export default async function CompetitiveAnalysis() {
-  // 从自动情报表拉取数据，并关联竞品颜色
-  const { data: news, error } = await supabase
-    .from('auto_entries')
-    .select(`*, competitors(name, color)`)
-    .order('veroeffentlicht', { ascending: false })
+  // 1. 从数据库拉取情报数据的函数
+  const fetchIntelligence = async () => {
+    setIsLoading(true)
+    const { data, error } = await supabase
+      .from('auto_entries')
+      .select(`*, competitors(name, color)`)
+      .order('veroeffentlicht', { ascending: false })
+    
+    if (data) setNews(data)
+    if (error) console.error("Fetch error:", error)
+    setIsLoading(false)
+  }
+
+  // 2. 页面初次加载时自动拉取一次数据
+  useEffect(() => {
+    fetchIntelligence()
+  }, [])
+
+  // 3. 手动触发爬虫同步的函数
+  const handleSync = async () => {
+    setIsSyncing(true)
+    try {
+      // 呼叫你的爬虫 API
+      const res = await fetch('/api/crawl', { method: 'GET' })
+      const result = await res.json()
+      
+      if (result.success) {
+        // 抓取成功后，重新从数据库拉取最新数据刷新页面
+        await fetchIntelligence()
+      } else {
+        console.error("Crawler failed:", result.error)
+      }
+    } catch (error) {
+      console.error("Failed to trigger sync:", error)
+    } finally {
+      setIsSyncing(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] p-8">
@@ -25,7 +63,22 @@ export default async function CompetitiveAnalysis() {
               <p className="text-gray-400 font-medium text-sm">Real-time competitor tracking: KeeTa & iFood Brazil</p>
             </div>
           </div>
+          
+          {/* 右侧操作区：新增了一键同步按钮 */}
           <div className="flex gap-4 mt-6 md:mt-0">
+             <button 
+               onClick={handleSync}
+               disabled={isSyncing}
+               className={`px-6 py-3 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-2 transition-all ${
+                 isSyncing 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-[#FFD111] text-[#333] hover:shadow-lg hover:-translate-y-1'
+               }`}
+             >
+               <RefreshCw size={18} className={isSyncing ? 'animate-spin text-gray-400' : 'text-[#333]'} />
+               {isSyncing ? 'Syncing...' : 'Run Crawler'}
+             </button>
+             
              <div className="px-6 py-3 rounded-2xl bg-[#333] text-[#FFD111] font-bold text-sm flex items-center gap-2">
                <BarChart3 size={16} /> {news?.length || 0} Records Synced
              </div>
@@ -39,7 +92,12 @@ export default async function CompetitiveAnalysis() {
               <Globe size={18} className="text-[#FFD111]" /> Latest Market Movements
             </h3>
             
-            {news && news.length > 0 ? (
+            {isLoading ? (
+              // 加载状态骨架屏
+              <div className="bg-white rounded-[32px] p-12 flex justify-center items-center border border-gray-100 shadow-sm">
+                 <RefreshCw size={32} className="animate-spin text-[#FFD111]" />
+              </div>
+            ) : news && news.length > 0 ? (
               news.map((item) => (
                 <div key={item.id} className="bg-white rounded-[28px] p-7 shadow-sm hover:shadow-md transition-all flex gap-6 border border-gray-50 group border-l-[6px]" style={{ borderLeftColor: item.competitors?.color || '#eee' }}>
                   <div className="flex-1 space-y-3">
@@ -58,7 +116,7 @@ export default async function CompetitiveAnalysis() {
                       {item.zusammenfassung}
                     </p>
                     <div className="pt-2">
-                      <a href={item.url} target="_blank" className="text-[11px] font-black uppercase text-[#333] hover:underline flex items-center gap-1">
+                      <a href={item.url} target="_blank" rel="noreferrer" className="text-[11px] font-black uppercase text-[#333] hover:underline flex items-center gap-1">
                         Open Report <ChevronRight size={14} />
                       </a>
                     </div>
@@ -66,12 +124,13 @@ export default async function CompetitiveAnalysis() {
                 </div>
               ))
             ) : (
+              // 空状态提示更新
               <div className="bg-white rounded-[32px] border-4 border-dashed border-gray-100 py-32 flex flex-col items-center justify-center text-center">
                 <div className="bg-gray-50 p-6 rounded-full mb-4">
                   <Zap size={48} className="text-gray-200" />
                 </div>
                 <p className="text-gray-300 font-bold text-xl italic uppercase tracking-tighter">Waiting for intelligence flow...</p>
-                <p className="text-gray-400 text-sm mt-2">Trigger /api/crawl to start ingestion</p>
+                <p className="text-gray-400 text-sm mt-2">Click <strong className="text-[#333]">RUN CRAWLER</strong> to start ingestion</p>
               </div>
             )}
           </div>

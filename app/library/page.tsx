@@ -32,42 +32,64 @@ export default async function MaterialLibrary() {
       </div>
 
       <div className="max-w-7xl mx-auto px-8 -mt-10">
-        {/* 瀑布流/网格布局 */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {materials?.map((item) => (
-            <div key={item.id} className="bg-white rounded-[24px] overflow-hidden shadow-md hover:shadow-xl transition-all border border-transparent hover:border-[#FFD111] group">
-              {/* 素材预览区 */}
-              <div className="aspect-[4/5] bg-[#F3F3F3] relative flex items-center justify-center">
-                <ShoppingBag size={48} className="text-gray-300 group-hover:scale-110 transition-transform" />
-                <div 
-                  className="absolute top-4 right-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-white"
-                  style={{ backgroundColor: item.competitors?.color || '#333' }}
-                >
-                  {item.competitors?.name}
-                </div>
-              </div>
+          {materials?.map((item) => {
+            // 判断数据库里的 url 是不是真实的外部链接
+            const hasRealImage = item.url && item.url.startsWith('http')
 
-              {/* 内容区 */}
-              <div className="p-6 space-y-3">
-                <h3 className="text-lg font-bold text-[#333] leading-tight truncate">
-                  {item.titel}
-                </h3>
-                <div className="flex items-center gap-2 text-gray-400 text-xs font-medium">
-                  <MapPin size={12} />
-                  <span>São Paulo, BR</span>
-                </div>
-                <div className="pt-3 flex items-center justify-between border-t border-gray-50">
-                  <div className="flex items-center gap-1.5 text-gray-400 text-[10px]">
-                    <Calendar size={12} />
-                    {item.aufnahmeDatum ? new Date(item.aufnahmeDatum).toLocaleDateString() : 'N/A'}
+            return (
+              <div key={item.id} className="bg-white rounded-[24px] overflow-hidden shadow-md hover:shadow-xl transition-all border border-transparent hover:border-[#FFD111] group flex flex-col">
+                
+                {/* 核心改动：真实图片预览区 */}
+                <div className="aspect-[4/5] bg-[#F3F3F3] relative flex items-center justify-center overflow-hidden">
+                  {hasRealImage ? (
+                    <img 
+                      src={item.url} 
+                      alt={item.titel} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  ) : (
+                    <ShoppingBag size={48} className="text-gray-300 group-hover:scale-110 transition-transform duration-500" />
+                  )}
+                  
+                  {/* 悬浮的竞品标签 */}
+                  <div 
+                    className="absolute top-4 right-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-white z-10"
+                    style={{ backgroundColor: item.competitors?.color || '#333' }}
+                  >
+                    {item.competitors?.name}
                   </div>
-                  <button className="bg-[#FFD111] p-2 rounded-xl text-[#333] hover:scale-110 transition-all">
-                    <ExternalLink size={14} />
-                  </button>
+                </div>
+
+                <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#333] leading-tight line-clamp-2">
+                      {item.titel}
+                    </h3>
+                    <div className="flex items-center gap-2 text-gray-400 text-xs font-medium mt-2">
+                      <MapPin size={12} />
+                      <span>São Paulo, BR</span>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4 mt-2 flex items-center justify-between border-t border-gray-50">
+                    <div className="flex items-center gap-1.5 text-gray-400 text-[10px] font-bold">
+                      <Calendar size={12} />
+                      {item.aufnahmeDatum ? new Date(item.aufnahmeDatum).toLocaleDateString() : 'N/A'}
+                    </div>
+                    {/* 如果有真实链接，点击可以直接看高清大图 */}
+                    <a 
+                      href={hasRealImage ? item.url : '#'} 
+                      target={hasRealImage ? "_blank" : "_self"}
+                      className="bg-[#FFD111] p-2 rounded-xl text-[#333] hover:scale-110 transition-all cursor-pointer"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
