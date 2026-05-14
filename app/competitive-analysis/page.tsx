@@ -9,7 +9,7 @@ export default function CompetitiveAnalysis() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // 1. 从数据库拉取情报数据的函数
+  // 1. 拉取真实数据
   const fetchIntelligence = async () => {
     setIsLoading(true)
     const { data, error } = await supabase
@@ -22,24 +22,17 @@ export default function CompetitiveAnalysis() {
     setIsLoading(false)
   }
 
-  // 2. 页面初次加载时自动拉取一次数据
   useEffect(() => {
     fetchIntelligence()
   }, [])
 
-  // 3. 手动触发爬虫同步的函数
   const handleSync = async () => {
     setIsSyncing(true)
     try {
-      // 呼叫你的爬虫 API
       const res = await fetch('/api/crawl', { method: 'GET' })
       const result = await res.json()
-      
       if (result.success) {
-        // 抓取成功后，重新从数据库拉取最新数据刷新页面
         await fetchIntelligence()
-      } else {
-        console.error("Crawler failed:", result.error)
       }
     } catch (error) {
       console.error("Failed to trigger sync:", error)
@@ -48,11 +41,50 @@ export default function CompetitiveAnalysis() {
     }
   }
 
+  // ==========================================
+  // 🧠 核心数据引擎：动态计算真实指标
+  // ==========================================
+
+  // A. 计算竞品情报声量份额 (KeeTa vs iFood)
+  const keetaCount = news.filter(item => item.competitor_id === 1 || item.competitors?.name?.toLowerCase().includes('keeta')).length
+  const ifoodCount = news.filter(item => item.competitor_id === 2 || item.competitors?.name?.toLowerCase().includes('ifood')).length
+  const totalCompetitorIntel = keetaCount + ifoodCount || 1 // 防止除以 0
+  const keetaShare = Math.round((keetaCount / totalCompetitorIntel) * 100)
+  const ifoodShare = 100 - keetaShare
+
+  // B. 动态关键词匹配器（同时兼容葡语和英语）
+  const getSegmentCount = (keywords: string[]) => {
+    return news.filter(item => {
+      const textBlock = `${item.titel} ${item.zusammenfassung}`.toLowerCase()
+      return keywords.some(kw => textBlock.includes(kw))
+    }).length
+  }
+
+  // C. 生成真实的策略分段数据
+  const segments = [
+    { 
+      label: 'Pricing Strategy', 
+      count: getSegmentCount(['price', 'preço', 'desconto', 'discount', 'taxa', 'frete', 'cobranc']) 
+    },
+    { 
+      label: 'Subsidy Efficiency', 
+      count: getSegmentCount(['subsidy', 'subsídio', 'cupom', 'coupon', 'promo', 'offer', 'grátis', 'voucher']) 
+    },
+    { 
+      label: 'Merchant Growth', 
+      count: getSegmentCount(['merchant', 'restaurante', 'loja', 'store', 'partner', 'parceiro', 'b2b']) 
+    },
+    { 
+      label: 'User Retention', 
+      count: getSegmentCount(['retention', 'fidelidade', 'loyalty', 'clube', 'assinatura', 'prime', 'vip']) 
+    }
+  ]
+
   return (
     <div className="min-h-screen bg-[#F8F9FA] p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         
-        {/* 顶部状态栏：99Food 活力黄 */}
+        {/* 顶部控制台 */}
         <div className="bg-white rounded-[32px] p-8 shadow-sm flex flex-col md:flex-row justify-between items-center border border-gray-100">
           <div className="flex items-center gap-6">
             <div className="bg-[#FFD111] p-5 rounded-[24px] shadow-inner">
@@ -64,7 +96,6 @@ export default function CompetitiveAnalysis() {
             </div>
           </div>
           
-          {/* 右侧操作区：新增了一键同步按钮 */}
           <div className="flex gap-4 mt-6 md:mt-0">
              <button 
                onClick={handleSync}
@@ -93,7 +124,6 @@ export default function CompetitiveAnalysis() {
             </h3>
             
             {isLoading ? (
-              // 加载状态骨架屏
               <div className="bg-white rounded-[32px] p-12 flex justify-center items-center border border-gray-100 shadow-sm">
                  <RefreshCw size={32} className="animate-spin text-[#FFD111]" />
               </div>
@@ -124,7 +154,6 @@ export default function CompetitiveAnalysis() {
                 </div>
               ))
             ) : (
-              // 空状态提示更新
               <div className="bg-white rounded-[32px] border-4 border-dashed border-gray-100 py-32 flex flex-col items-center justify-center text-center">
                 <div className="bg-gray-50 p-6 rounded-full mb-4">
                   <Zap size={48} className="text-gray-200" />
@@ -135,39 +164,44 @@ export default function CompetitiveAnalysis() {
             )}
           </div>
 
-          {/* 右侧：策略筛选面板 */}
+          {/* 右侧：真实的策略分析面板 */}
           <div className="space-y-6">
+            
+            {/* 策略分类 */}
             <div className="bg-[#333] rounded-[32px] p-8 text-white shadow-xl">
               <h4 className="text-xs font-black uppercase tracking-[0.2em] text-[#FFD111] mb-8 border-b border-white/10 pb-4">Strategy Segments</h4>
               <div className="space-y-4">
-                {[
-                  { label: 'Pricing Strategy', count: '12' },
-                  { label: 'Subsidy Efficiency', count: '08' },
-                  { label: 'Merchant Growth', count: '05' },
-                  { label: 'User Retention', count: '14' }
-                ].map((tag) => (
+                {segments.map((tag) => (
                   <div key={tag.label} className="flex justify-between items-center group cursor-pointer p-2 hover:bg-white/5 rounded-xl transition-colors">
                     <span className="font-bold text-md group-hover:text-[#FFD111] transition-colors">{tag.label}</span>
-                    <span className="bg-white/10 text-[10px] px-2 py-1 rounded-md text-gray-400 group-hover:text-[#FFD111]">{tag.count}</span>
+                    <span className="bg-white/10 text-[10px] px-2 py-1 rounded-md text-gray-400 group-hover:text-[#FFD111]">
+                      {/* 如果数据为0，显示 00 保持 UI 对齐 */}
+                      {tag.count < 10 ? `0${tag.count}` : tag.count}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
             
+            {/* 声量份额 */}
             <div className="bg-[#FFD111] rounded-[32px] p-8 text-[#333] shadow-lg">
                <h4 className="font-black italic text-xl uppercase tracking-tighter mb-1">Brazil Intel</h4>
-               <p className="text-xs font-bold opacity-60 mb-4 uppercase">KeeTa vs iFood Share</p>
+               <p className="text-xs font-bold opacity-60 mb-4 uppercase">Intel Share of Voice</p>
+               
+               {/* 动态比例条 */}
                <div className="h-2 w-full bg-black/10 rounded-full overflow-hidden flex">
-                  <div className="h-full bg-[#333]" style={{ width: '42%' }}></div>
-                  <div className="h-full bg-white/50" style={{ width: '58%' }}></div>
+                  <div className="h-full bg-[#333] transition-all duration-1000 ease-out" style={{ width: `${news.length > 0 ? keetaShare : 0}%` }}></div>
+                  <div className="h-full bg-white/50 transition-all duration-1000 ease-out" style={{ width: `${news.length > 0 ? ifoodShare : 0}%` }}></div>
                </div>
+               
+               {/* 动态数字 */}
                <div className="flex justify-between mt-2 font-black text-[10px]">
-                  <span>KEETA 42%</span>
-                  <span>IFOOD 58%</span>
+                  <span>KEETA {news.length > 0 ? keetaShare : 0}%</span>
+                  <span>IFOOD {news.length > 0 ? ifoodShare : 0}%</span>
                </div>
             </div>
-          </div>
 
+          </div>
         </div>
       </div>
     </div>

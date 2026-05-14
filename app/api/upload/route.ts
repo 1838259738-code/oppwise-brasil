@@ -6,68 +6,66 @@ export const dynamic = 'force-dynamic'
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData()
-    
-    const files = formData.getAll('files') as File[]
+    const file = formData.get('files') as File // 获取单个文件
     const wettbewerberId = formData.get('wettbewerberId') as string
-    const kategorieId = formData.get('kategorieId') as string
     const titel = formData.get('titel') as string
     const beschreibung = formData.get('beschreibung') as string
 
-    if (files.length === 0) {
-      return NextResponse.json({ error: 'No files uploaded' }, { status: 400 })
+    if (!file) {
+      return NextResponse.json({ error: 'No file found in request' }, { status: 400 })
     }
 
-    const file = files[0]
+    // 1. 处理文件名，防止特殊字符导致 URL 失效
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+    const filePath = `uploads/${fileName}`
 
-    // 1. 将前端传来的 File 对象转换为 Buffer 流
+    // 2. 将 File 转为 Buffer
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    
-    // 清理文件名中的特殊字符，防止 URL 报错
-    const safeFileName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')
-    const filePath = `uploads/${Date.now()}_${safeFileName}`
 
-    // 2. 将真实的图片文件上传到 Supabase Storage ('intelligence' 桶)
-    const { error: storageError } = await supabase.storage
+    // 3. 上传到 Supabase Storage
+    const { data: storageData, error: storageError } = await supabase.storage
       .from('intelligence')
       .upload(filePath, buffer, {
         contentType: file.type,
-        upsert: false
+        upsert: true // 允许覆盖
       })
 
     if (storageError) {
-      console.error('[Storage Error]:', storageError)
-      return NextResponse.json({ error: 'Image upload failed' }, { status: 500 })
+      console.error('Storage Upload Error:', storageError)
+      return NextResponse.json({ error: 'Failed to upload to storage' }, { status: 500 })
     }
 
-    // 3. 获取刚刚上传的图片的真实公网 URL
+    // 4. 获取公网访问链接
     const { data: { publicUrl } } = supabase.storage
       .from('intelligence')
       .getPublicUrl(filePath)
 
-    // 4. 将带有真实 URL 的情报存入数据库表
-    const { data, error } = await supabase
+    console.log('Generated Public URL:', publicUrl)
+
+    // 5. 写入数据库 materials 表
+    const { data, error: dbError } = await supabase
       .from('materials')
       .insert([
         {
           titel: titel || 'Untitled Intelligence',
           beschreibung: beschreibung || '',
           competitor_id: wettbewerberId ? parseInt(wettbewerberId) : null,
-          category_id: kategorieId ? parseInt(kategorieId) : null,
-          url: publicUrl, // <--- 关键：这里存入了真实的 https 链接
+          url: publicUrl, // 确保存入的是完整的 https 链接
           aufnahmeDatum: new Date().toISOString(),
         }
       ])
       .select()
-      .single()
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (dbError) {
+      console.error('Database Insert Error:', dbError)
+      return NextResponse.json({ error: dbError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, data })
   } catch (err: any) {
-    console.error('[Upload API Crash]:', err)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    console.error('Global API Error:', err)
+    return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
