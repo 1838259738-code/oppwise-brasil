@@ -1,18 +1,38 @@
 import { supabase } from '@/lib/supabase'
 import { ShoppingBag, Calendar, MapPin, ExternalLink } from 'lucide-react'
 
-// 禁用缓存，确保每次点击进来看到的都是最新上传的图片
-export const revalidate = 0 
 export const dynamic = 'force-dynamic'
 
+// 绝对安全的时间格式化函数（防范任何脏数据导致服务端崩溃）
+const safeFormatDate = (dateString: any) => {
+  if (!dateString) return 'N/A'
+  try {
+    const d = new Date(dateString)
+    // 检查是否为 Invalid Date
+    if (isNaN(d.getTime())) return 'N/A'
+    return d.toLocaleDateString()
+  } catch (e) {
+    return 'N/A'
+  }
+}
+
 export default async function MaterialLibrary() {
-  // 修复 1：排序字段改回数据库中真实的 aufnahmeDatum
+  // 防弹查询：放弃可能会出错的自定义时间字段排序，直接按数据自带的 id 倒序排
   const { data: materials, error } = await supabase
     .from('materials')
     .select(`*, competitors (name, color)`)
-    .order('aufnahmeDatum', { ascending: false })
+    .order('id', { ascending: false }) 
 
-  if (error) return <div className="p-10 text-red-500 font-bold">Error: {error.message}</div>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] p-10 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-[24px] shadow-lg text-center border-2 border-red-100">
+          <h2 className="text-red-500 font-black text-2xl mb-2">Database Error</h2>
+          <p className="text-gray-500">{error.message}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-20">
@@ -32,8 +52,13 @@ export default async function MaterialLibrary() {
       <div className="max-w-7xl mx-auto px-8 -mt-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {materials?.map((item) => {
-            const imageUrl = item.url
-            const isValidImage = imageUrl && imageUrl.startsWith('http')
+            // 安全提取图片链接和竞品颜色
+            const imageUrl = item?.url || ''
+            const isValidImage = imageUrl.startsWith('http')
+            
+            // 安全提取关联表数据（应对一对多数组或空对象的情况）
+            const compName = Array.isArray(item?.competitors) ? item.competitors[0]?.name : item?.competitors?.name
+            const compColor = Array.isArray(item?.competitors) ? item.competitors[0]?.color : item?.competitors?.color
 
             return (
               <div key={item.id} className="bg-white rounded-[24px] overflow-hidden shadow-md hover:shadow-xl transition-all border border-transparent hover:border-[#FFD111] group flex flex-col">
@@ -41,9 +66,8 @@ export default async function MaterialLibrary() {
                   {isValidImage ? (
                     <img 
                       src={imageUrl} 
-                      alt={item.titel}
+                      alt={item.titel || 'Intel'}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      // 当图片加载失败时显示占位图，防止破图
                       onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x500?text=Image+Load+Error' }}
                     />
                   ) : (
@@ -53,19 +77,19 @@ export default async function MaterialLibrary() {
                     </div>
                   )}
                   
-                  <div className="absolute top-4 right-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-white z-10" style={{ backgroundColor: item.competitors?.color || '#333' }}>
-                    {item.competitors?.name || 'KeeTa'}
+                  <div className="absolute top-4 right-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-white z-10" style={{ backgroundColor: compColor || '#333' }}>
+                    {compName || 'KeeTa'}
                   </div>
                 </div>
 
                 <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
-                  <h3 className="text-lg font-bold text-[#333] line-clamp-2">{item.titel}</h3>
+                  <h3 className="text-lg font-bold text-[#333] line-clamp-2">{item.titel || 'Untitled'}</h3>
                   <div className="pt-4 flex items-center justify-between border-t border-gray-50 text-gray-400 text-[10px] font-bold">
                     
-                    {/* 修复 2：安全渲染日期，先判断 aufnahmeDatum 是否存在，避免再次抛出 Invalid Date */}
+                    {/* 使用安全的时间格式化函数，彻底杜绝崩溃 */}
                     <div className="flex items-center gap-1.5">
                       <Calendar size={12} />
-                      {item.aufnahmeDatum ? new Date(item.aufnahmeDatum).toLocaleDateString() : 'N/A'}
+                      {safeFormatDate(item.aufnahmeDatum || item.created_at)}
                     </div>
                     
                     <a href={isValidImage ? imageUrl : '#'} target={isValidImage ? "_blank" : "_self"} className="bg-[#FFD111] p-2 rounded-xl text-[#333] hover:scale-110 transition-all"><ExternalLink size={14} /></a>
