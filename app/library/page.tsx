@@ -1,23 +1,53 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
-import { ShoppingBag, Calendar, ExternalLink } from 'lucide-react'
+import { ShoppingBag, Calendar, ExternalLink, RefreshCw } from 'lucide-react'
 
-// 强制动态渲染，禁用缓存
-export const dynamic = 'force-dynamic'
-export const revalidate = 0 
+export default function MaterialLibrary() {
+  const [materials, setMaterials] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [errorMsg, setErrorMsg] = useState('')
 
-export default async function MaterialLibrary() {
-  // 极致简化查询：只查单表，不查任何外键关联表 (competitors)，避免因为表结构不对导致的对象渲染错误
-  const { data: materials, error } = await supabase
-    .from('materials')
-    .select('*')
-    .order('id', { ascending: false }) 
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const { data, error } = await supabase
+          .from('materials')
+          .select('*')
+          .order('id', { ascending: false })
+          .limit(50) // 限制条数防爆
 
-  if (error) {
+        if (error) {
+          setErrorMsg(error.message)
+        } else if (data) {
+          setMaterials(data)
+        }
+      } catch (err: any) {
+        setErrorMsg(err.message || 'Unknown fetching error')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center gap-4">
+        <RefreshCw size={48} className="animate-spin text-[#FFD111]" />
+        <p className="text-gray-400 font-bold uppercase tracking-widest text-sm">Loading Intelligence Hub...</p>
+      </div>
+    )
+  }
+
+  if (errorMsg) {
     return (
       <div className="min-h-screen bg-[#F8F9FA] p-10 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-[24px] shadow-lg text-center border-2 border-red-100">
-          <h2 className="text-red-500 font-black text-2xl mb-2">Database Error</h2>
-          <p className="text-gray-500 text-sm">{error.message}</p>
+        <div className="bg-white p-8 rounded-[24px] shadow-lg text-center border-2 border-red-100 max-w-md">
+          <h2 className="text-red-500 font-black text-2xl mb-2">Fetch Error</h2>
+          <p className="text-gray-500 text-sm">{errorMsg}</p>
         </div>
       </div>
     )
@@ -33,15 +63,14 @@ export default async function MaterialLibrary() {
           </div>
           <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md">
             <p className="text-xs font-bold text-[#333]">TOTAL ASSETS</p>
-            <p className="text-3xl font-black text-[#333]">{materials?.length || 0}</p>
+            <p className="text-3xl font-black text-[#333]">{materials.length}</p>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-8 -mt-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {materials?.map((item) => {
-            // 极简处理图片 URL
+          {materials.map((item) => {
             const imageUrl = typeof item.url === 'string' ? item.url : ''
             const isValidImage = imageUrl.startsWith('http')
 
@@ -62,7 +91,6 @@ export default async function MaterialLibrary() {
                     </div>
                   )}
                   
-                  {/* 由于去掉了关联查询，这里写死标签作为降级展示 */}
                   <div className="absolute top-4 right-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm text-white bg-[#333] z-10">
                     ID: {item.competitor_id || 'N/A'}
                   </div>
@@ -75,7 +103,7 @@ export default async function MaterialLibrary() {
                   <div className="pt-4 flex items-center justify-between border-t border-gray-50 text-gray-400 text-[10px] font-bold">
                     <div className="flex items-center gap-1.5">
                       <Calendar size={12} />
-                      Raw Record
+                      {item.aufnahmeDatum ? String(item.aufnahmeDatum).substring(0, 10) : 'N/A'}
                     </div>
                     
                     <a href={isValidImage ? imageUrl : '#'} target={isValidImage ? "_blank" : "_self"} className="bg-[#FFD111] p-2 rounded-xl text-[#333] hover:scale-110 transition-all"><ExternalLink size={14} /></a>
@@ -84,6 +112,12 @@ export default async function MaterialLibrary() {
               </div>
             )
           })}
+          
+          {materials.length === 0 && (
+             <div className="col-span-full py-20 text-center text-gray-400 font-bold uppercase">
+               No materials found in database.
+             </div>
+          )}
         </div>
       </div>
     </div>
