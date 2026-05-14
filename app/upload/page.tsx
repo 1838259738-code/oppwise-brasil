@@ -1,147 +1,164 @@
 'use client'
 
 import { useState } from 'react'
-import { Upload, Database, CheckCircle2, AlertCircle } from 'lucide-react'
+import { UploadCloud, Database } from 'lucide-react'
 
-export default function UploadPage() {
+export default function UploadMaterial() {
   const [file, setFile] = useState<File | null>(null)
-  const [title, setTitle] = useState('')
-  const [competitorId, setCompetitorId] = useState('1') // 默认 1: KeeTa, 2: iFood
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [formData, setFormData] = useState({
+    competitor: 'KeeTa (Yellow)',
+    title: '',
+    userSegment: 'New User',
+    assetType: 'Welcome Coupon Pack'
+  })
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0])
-    }
-  }
+  const handleSubmit = async () => {
+    if (!file) return alert('Please select a file first.')
+    if (!formData.title) return alert('Please enter a title.')
+    
+    setIsUploading(true)
 
-  const handleSync = async () => {
-    if (!file) {
-      setStatus({ type: 'error', msg: 'Please select a file first.' })
-      return
-    }
-
-    setIsSyncing(true)
-    setStatus(null)
-
-    const formData = new FormData()
-    // 关键修正：确保键名 'files' 与后端 getAll('files') 完全一致
-    formData.append('files', file)
-    formData.append('titel', title)
-    formData.append('wettbewerberId', competitorId)
-    formData.append('beschreibung', 'Manual upload from intelligence portal')
+    const data = new FormData()
+    data.append('files', file)
+    // 根据下拉框选择映射真实的竞争对手 ID
+    data.append('wettbewerberId', formData.competitor.includes('KeeTa') ? '1' : '2')
+    // 将标题、用户分层和类型组合，保留更多上下文供 Intelligence Hub 展示
+    const enrichedTitle = `[${formData.userSegment}] ${formData.title}`
+    data.append('titel', enrichedTitle)
+    data.append('beschreibung', `Type: ${formData.assetType} | Segment: ${formData.userSegment}`)
 
     try {
-      const response = await fetch('/api/upload', {
+      const res = await fetch('/api/upload', {
         method: 'POST',
-        body: formData,
-        // 注意：不要手动设置 Content-Type header
+        body: data
       })
-
-      const result = await response.json()
-
-      if (!response.ok) throw new Error(result.error || 'Upload failed')
-
-      setStatus({ type: 'success', msg: 'Intelligence asset synced to database.' })
-      setFile(null)
-      setTitle('')
-    } catch (err: any) {
-      setStatus({ type: 'error', msg: err.message })
+      const result = await res.json()
+      
+      if (result.success) {
+        alert('Asset synced to database successfully!')
+        setFile(null)
+        setFormData({ ...formData, title: '' }) // 清空标题，保留常用选项
+      } else {
+        alert('Upload failed: ' + result.error)
+      }
+    } catch (err) {
+      alert('Network error. Please try again.')
     } finally {
-      setIsSyncing(false)
+      setIsUploading(false)
     }
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 p-6">
-      {/* 标题部分 - DB Industrial Style */}
-      <div className="border-l-8 border-[#FF0000] pl-6 py-2">
-        <h1 className="text-4xl font-black tracking-tighter uppercase italic text-[#333]">
-          Intelligence Ingest
-        </h1>
-        <p className="text-gray-500 font-mono text-sm mt-1">OPERATIX-B / BRAZIL MARKET</p>
+    <div className="min-h-screen bg-[#F5F6F8] p-10 flex flex-col items-center justify-center">
+      
+      {/* 顶部标题区 */}
+      <div className="w-full max-w-4xl mb-8 flex flex-col">
+        <div className="w-2 h-16 bg-[#EA4335] mb-4"></div>
+        <h1 className="text-5xl font-black italic text-[#333] tracking-tighter">INTELLIGENCE INGEST</h1>
+        <p className="text-gray-500 font-bold tracking-widest uppercase mt-2 text-sm">Operatix-B / Brazil Market</p>
       </div>
 
-      <div className="bg-white border-2 border-gray-100 p-8 shadow-sm space-y-6">
-        {/* 文件上传区域 */}
-        <div className="space-y-2">
-          <label className="block text-xs font-bold uppercase tracking-widest text-gray-400">
+      {/* 核心表单卡片 */}
+      <div className="w-full max-w-4xl bg-white p-12 rounded-sm shadow-xl border border-gray-100">
+        
+        {/* 上传区域 */}
+        <div className="mb-10">
+          <label className="block text-sm font-black text-gray-400 tracking-widest uppercase mb-4">
             Intelligence Asset *
           </label>
-          <div className={`relative border-2 border-dashed rounded-lg p-10 transition-colors ${file ? 'border-green-400 bg-green-50/30' : 'border-[#FFD111] bg-[#FFD111]/5'}`}>
+          <div className="relative border-4 border-dashed border-[#FFD111] bg-yellow-50/30 rounded-xl h-64 flex flex-col items-center justify-center hover:bg-yellow-50 transition-colors">
             <input 
               type="file" 
-              onChange={handleFileChange}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              accept="image/*"
             />
-            <div className="text-center space-y-2">
-              {file ? (
-                <div className="flex flex-col items-center animate-in fade-in zoom-in">
-                  <div className="bg-green-100 p-3 rounded-full text-green-600 mb-2">
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <span className="font-bold text-gray-700">{file.name}</span>
-                  <button className="text-xs text-amber-600 underline">Change file</button>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center text-gray-400">
-                  <Upload size={40} className="mb-2" />
-                  <p className="text-sm font-medium">Drag screenshot or click to browse</p>
-                </div>
-              )}
-            </div>
+            <UploadCloud size={48} className="text-gray-400 mb-4" />
+            <span className="text-gray-400 font-bold text-lg">
+              {file ? file.name : 'Drag screenshot or click to browse'}
+            </span>
+            {file && <span className="text-[#FFD111] font-black uppercase text-sm mt-2">Ready to Sync</span>}
           </div>
         </div>
 
-        {/* 表单字段 */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-gray-400">Target Competitor</label>
+        {/* 字段输入区域 - 两行网格布局 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+          
+          {/* 第一行：竞品 & 标题 */}
+          <div className="space-y-3">
+            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Target Competitor</label>
             <select 
-              value={competitorId}
-              onChange={(e) => setCompetitorId(e.target.value)}
-              className="w-full p-3 border-2 border-gray-100 font-bold focus:border-[#FF0000] outline-none"
+              value={formData.competitor}
+              onChange={(e) => setFormData({...formData, competitor: e.target.value})}
+              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
             >
-              <option value="1">KeeTa (Yellow)</option>
-              <option value="2">iFood (Red)</option>
+              <option>KeeTa (Yellow)</option>
+              <option>iFood (Red)</option>
             </select>
           </div>
-          <div className="space-y-2">
-            <label className="block text-xs font-bold uppercase tracking-widest text-gray-400">Intelligence Title</label>
+
+          <div className="space-y-3">
+            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Intelligence Title</label>
             <input 
-              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
               placeholder="e.g. Campaign Banner BRL 15"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full p-3 border-2 border-gray-100 font-bold focus:border-[#FF0000] outline-none"
+              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333] text-gray-400"
             />
           </div>
+
+          {/* 第二行：新增的用户分层 & 情报类型 */}
+          <div className="space-y-3">
+            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Target Segment</label>
+            <select 
+              value={formData.userSegment}
+              onChange={(e) => setFormData({...formData, userSegment: e.target.value})}
+              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
+            >
+              <option value="New User">新客 (New User)</option>
+              <option value="1-2 Orders">1-2单用户 (1-2 Orders)</option>
+              <option value="3-4 Orders">3-4单用户 (3-4 Orders)</option>
+              <option value="5+ Active">5+单活跃 (5+ Active)</option>
+              <option value="5+ Churned">5+单沉默 (5+ Churned)</option>
+              <option value="Universal">无差别普惠 (Universal)</option>
+            </select>
+          </div>
+
+          <div className="space-y-3">
+            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Asset Type</label>
+            <select 
+              value={formData.assetType}
+              onChange={(e) => setFormData({...formData, assetType: e.target.value})}
+              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
+            >
+              <option value="Welcome Coupon Pack">新客券包 (Welcome Pack)</option>
+              <option value="General Voucher">常规优惠券 (General Voucher)</option>
+              <option value="Campaign Event">大促/主题活动 (Campaign Event)</option>
+              <option value="Delivery Subsidy">运费补贴 (Delivery Subsidy)</option>
+              <option value="Homepage Pop-up">首页弹窗 (Homepage Pop-up)</option>
+              <option value="Push Landing Page">定向召回落地页 (Push Landing)</option>
+              <option value="VIP Pricing">会员专享价 (VIP Pricing)</option>
+              <option value="Checkout Surcharge">结算页异常加价 (Checkout Surcharge)</option>
+            </select>
+          </div>
+          
         </div>
 
-        {/* 状态反馈 */}
-        {status && (
-          <div className={`p-4 flex items-center gap-3 border-l-4 ${status.type === 'success' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700'}`}>
-            {status.type === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-            <span className="text-sm font-bold">{status.msg}</span>
-          </div>
-        )}
-
         {/* 提交按钮 */}
-        <button
-          onClick={handleSync}
-          disabled={isSyncing || !file}
-          className={`w-full py-5 flex items-center justify-center gap-3 text-xl font-black uppercase italic tracking-tighter transition-all shadow-[0_4px_0_0_#CC0000] active:translate-y-1 active:shadow-none ${isSyncing || !file ? 'bg-gray-200 text-gray-400 shadow-none' : 'bg-[#FFD111] text-[#333] hover:bg-[#FFC400]'}`}
+        <button 
+          onClick={handleSubmit}
+          disabled={isUploading || !file}
+          className={`w-full py-6 flex items-center justify-center gap-3 font-black italic tracking-widest text-2xl transition-all ${
+            isUploading || !file 
+              ? 'bg-[#E5E7EB] text-gray-400 cursor-not-allowed' 
+              : 'bg-[#E5E7EB] text-[#A3A8B1] hover:bg-[#333] hover:text-white'
+          }`}
         >
-          {isSyncing ? (
-            <div className="animate-spin rounded-full h-6 w-6 border-4 border-black border-t-transparent" />
-          ) : (
-            <>
-              <Database size={24} />
-              Sync to Database
-            </>
-          )}
+          <Database size={28} /> 
+          {isUploading ? 'SYNCING...' : 'SYNC TO DATABASE'}
         </button>
+
       </div>
     </div>
   )
