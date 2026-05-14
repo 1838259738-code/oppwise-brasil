@@ -10,7 +10,8 @@ import {
   Database, 
   Settings2, 
   FileBox,
-  Zap
+  Zap,
+  ClipboardList // <-- 1. 引入了新的看板图标
 } from 'lucide-react'
 
 export default function Sidebar() {
@@ -19,6 +20,7 @@ export default function Sidebar() {
   const navItems = [
     { name: 'Home', path: '/', icon: LayoutDashboard },
     { name: 'Competitive Analysis', path: '/competitive-analysis', icon: TrendingUp },
+    { name: 'Ops Requests', path: '/requests', icon: ClipboardList }, // <-- 2. 新增的需求中心导航
     { name: 'Upload Material', path: '/upload', icon: UploadCloud },
     { name: 'Field Intel', path: '/field-intel', icon: ScanEye },
     { name: 'Material Library', path: '/library', icon: Database },
