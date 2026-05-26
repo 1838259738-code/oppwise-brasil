@@ -15,7 +15,7 @@ import {
   ClipboardList,
   Menu,
   X,
-  Mail // <-- 引入邮箱图标
+  Mail
 } from 'lucide-react'
 
 export default function Sidebar() {
@@ -73,18 +73,22 @@ export default function Sidebar() {
 
         {/* Logo 区域 / Branding Area */}
         <div className="p-8 flex-shrink-0">
-          <Link href="/" className="flex flex-col gap-1 group">
+          <Link href="/" className="flex flex-col gap-2 group">
             <div className="flex items-center gap-2">
               <div className="bg-[#FFD111] p-1.5 rounded-lg group-hover:scale-110 transition-transform">
                 <Zap size={20} className="text-[#333] fill-current" />
               </div>
+              {/* 🌟 核心升级：主系统代号使用冷峻宏大的 Operatix-B */}
               <h1 className="text-2xl font-black text-white tracking-tighter uppercase italic">
-                Oppwise
+                Operatix-B
               </h1>
             </div>
-            <p className="text-[#FFD111] text-[10px] font-black uppercase tracking-[0.2em] ml-9">
-              Brazil Operations
-            </p>
+            {/* 🌟 完美挂钩你的真实购买域名，伪装成分布式微服务集群的 Ingestion 节点标签 */}
+            <div className="ml-8">
+              <span className="text-[#FFD111] text-[9px] font-mono font-bold uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded border border-white/5 inline-block">
+                NODE: oppwise-brasil.site
+              </span>
+            </div>
           </Link>
         </div>
 
@@ -111,7 +115,7 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* 🚀 底部重构：高规格个人版权与一键联络名片区 */}
+        {/* 🚀 底部：高规格个人版权与一键联络名片区 */}
         <div className="p-5 m-4 bg-black/30 rounded-[24px] border border-white/5 flex flex-col gap-2 flex-shrink-0">
           <div className="flex items-center gap-2.5">
             {/* 头像徽章 */}
