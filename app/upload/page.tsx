@@ -1,163 +1,164 @@
 'use client'
 
 import { useState } from 'react'
-import { UploadCloud, Database } from 'lucide-react'
+import { UploadCloud, CheckCircle2, Loader2, Tag, Layers, Zap, FolderPlus } from 'lucide-react'
 
 export default function UploadMaterial() {
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [formData, setFormData] = useState({
-    competitor: 'KeeTa (Yellow)',
     title: '',
-    userSegment: 'New User',
-    assetType: 'Welcome Coupon Pack'
+    competitorId: '1', // 1: KeeTa, 2: iFood
+    description: ''
   })
 
-  const handleSubmit = async () => {
-    if (!file) return alert('Please select a file first.')
-    if (!formData.title) return alert('Please enter a title.')
-    
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!file) return alert('Por favor, selecione um arquivo! / 请先选择要上传的素材文件！')
+    if (!formData.title) return alert('Por favor, insira o título! / 请输入素材标题！')
+
     setIsUploading(true)
 
     const data = new FormData()
     data.append('files', file)
-    // 根据下拉框选择映射真实的竞争对手 ID
-    data.append('wettbewerberId', formData.competitor.includes('KeeTa') ? '1' : '2')
-    // 将标题、用户分层和类型组合，保留更多上下文供 Intelligence Hub 展示
-    const enrichedTitle = `[${formData.userSegment}] ${formData.title}`
-    data.append('titel', enrichedTitle)
-    data.append('beschreibung', `Type: ${formData.assetType} | Segment: ${formData.userSegment}`)
+    data.append('title', formData.title)
+    data.append('competitorId', formData.competitorId)
+    data.append('description', formData.description)
 
     try {
+      // 呼叫后端的公共资产图床写入 API
       const res = await fetch('/api/upload', {
         method: 'POST',
-        body: data
+        body: data,
       })
+
       const result = await res.json()
-      
+
       if (result.success) {
-        alert('Asset synced to database successfully!')
+        alert('Material salvo com sucesso! / 核心竞品素材已成功同步双写至图库！')
         setFile(null)
-        setFormData({ ...formData, title: '' }) // 清空标题，保留常用选项
+        setFormData({ title: '', competitorId: '1', description: '' })
       } else {
-        alert('Upload failed: ' + result.error)
+        alert('Erro no upload / 上传失败: ' + result.error)
       }
     } catch (err) {
-      alert('Network error. Please try again.')
+      alert('Erro de rede ao conectar com o servidor. / 网络连接异常。')
     } finally {
       setIsUploading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F6F8] p-10 flex flex-col items-center justify-center">
-      
-      {/* 顶部标题区 */}
-      <div className="w-full max-w-4xl mb-8 flex flex-col">
-        <div className="w-2 h-16 bg-[#EA4335] mb-4"></div>
-        <h1 className="text-5xl font-black italic text-[#333] tracking-tighter">INTELLIGENCE INGEST</h1>
-        <p className="text-gray-500 font-bold tracking-widest uppercase mt-2 text-sm">Operatix-B / Brazil Market</p>
-      </div>
-
-      {/* 核心表单卡片 */}
-      <div className="w-full max-w-4xl bg-white p-12 rounded-sm shadow-xl border border-gray-100">
+    <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-8">
+      <div className="max-w-3xl mx-auto space-y-6 md:space-y-8">
         
-        {/* 上传区域 */}
-        <div className="mb-10">
-          <label className="block text-sm font-black text-gray-400 tracking-widest uppercase mb-4">
-            Intelligence Asset *
-          </label>
-          <div className="relative border-4 border-dashed border-[#FFD111] bg-yellow-50/30 rounded-xl h-64 flex flex-col items-center justify-center hover:bg-yellow-50 transition-colors">
+        {/* 🚀 视觉重构：彻底替换掉原本难看的粗红线斜体 Intelligence Ingest */}
+        <div className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-sm flex flex-col sm:flex-row items-start sm:items-center gap-4 md:gap-6 border border-gray-100">
+          <div className="bg-[#333] p-3.5 rounded-[18px] md:rounded-[24px] shadow-lg text-[#FFD111]">
+            <FolderPlus size={26} className="md:w-7 md:h-7" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl md:text-2xl font-black text-[#333] tracking-tight">
+                Upload Material
+              </h2>
+              <span className="text-gray-300 font-light text-lg">|</span>
+              <span className="text-gray-500 font-bold text-sm md:text-base mt-0.5">
+                原始素材入库
+              </span>
+            </div>
+            <p className="text-gray-400 font-medium text-xs mt-1.5">
+              前线地推高频提报专用通道 / Standardized Competitor Asset Ingestion Channel
+            </p>
+          </div>
+        </div>
+
+        {/* 素材提报核心表单 */}
+        <form onSubmit={handleSubmit} className="bg-white rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-sm border border-gray-100 space-y-6">
+          
+          {/* 拖拽上传槽 */}
+          <div className={`relative border-2 border-dashed rounded-[20px] p-8 text-center transition-all ${file ? 'border-[#FFD111] bg-[#FFD111]/5' : 'border-gray-200 hover:border-[#FFD111] bg-gray-50'}`}>
             <input 
               type="file" 
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              accept="image/*"
+              onChange={(e) => setFile(e.target.files?.[0] || null)} 
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+              accept="image/*" 
             />
-            <UploadCloud size={48} className="text-gray-400 mb-4" />
-            <span className="text-gray-400 font-bold text-lg">
-              {file ? file.name : 'Drag screenshot or click to browse'}
-            </span>
-            {file && <span className="text-[#FFD111] font-black uppercase text-sm mt-2">Ready to Sync</span>}
-          </div>
-        </div>
-
-        {/* 字段输入区域 - 两行网格布局 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-          
-          {/* 第一行：竞品 & 标题 */}
-          <div className="space-y-3">
-            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Target Competitor</label>
-            <select 
-              value={formData.competitor}
-              onChange={(e) => setFormData({...formData, competitor: e.target.value})}
-              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
-            >
-              <option>KeeTa (Yellow)</option>
-              <option>iFood (Red)</option>
-            </select>
+            {file ? (
+              <div className="flex flex-col items-center">
+                <CheckCircle2 className="text-[#FFD111] mb-2" size={32} />
+                <span className="font-bold text-xs md:text-sm text-[#333] max-w-xs truncate">{file.name}</span>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center text-gray-400 space-y-1">
+                <UploadCloud size={30} />
+                <span className="font-bold text-xs md:text-sm text-[#333]">点击或拖拽上传原始截图 / Drag files here to upload</span>
+                <span className="text-[10px] text-gray-400">支持 PNG, JPG, JPEG 格式格式</span>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-3">
-            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Intelligence Title</label>
-            <input 
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              placeholder="e.g. Campaign Banner BRL 15"
-              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333] text-gray-400"
-            />
+          {/* 业务元数据输入 */}
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-1">
+                <Tag size={12}/> Asset Title / 素材标题 *
+              </label>
+              <input 
+                required 
+                value={formData.title} 
+                onChange={e => setFormData({...formData, title: e.target.value})} 
+                className="w-full bg-gray-50 p-3.5 rounded-xl font-bold text-xs md:text-sm outline-none focus:ring-2 focus:ring-[#FFD111] text-[#333]" 
+                placeholder="e.g. iFood Checkout Banner Campanha de Maio" 
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black uppercase text-gray-400 tracking-widest flex items-center gap-1">
+                <Layers size={12}/> Competitor Origin / 素材归属竞品 *
+              </label>
+              <select 
+                value={formData.competitorId} 
+                onChange={e => setFormData({...formData, competitorId: e.target.value})} 
+                className="w-full bg-gray-50 p-3.5 rounded-xl font-bold text-xs md:text-sm outline-none focus:ring-2 focus:ring-[#FFD111] text-[#333]"
+              >
+                <option value="1">KeeTa (Yellow)</option>
+                <option value="2">iFood (Red)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-black uppercase text-gray-400 tracking-widest">
+                Contextual Description / 情报备注摘要
+              </label>
+              <textarea 
+                rows={4} 
+                value={formData.description} 
+                onChange={e => setFormData({...formData, description: e.target.value})} 
+                placeholder="简要描述该素材捕获的商圈背景、对应力度或核心攻势特征... / Brief strategic briefing..." 
+                className="w-full bg-gray-50 p-3.5 rounded-xl font-bold text-xs md:text-sm outline-none focus:ring-2 focus:ring-[#FFD111] text-[#333]" 
+              />
+            </div>
           </div>
 
-          {/* 第二行：新增的用户分层 & 情报类型 */}
-          <div className="space-y-3">
-            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Target Segment</label>
-            <select 
-              value={formData.userSegment}
-              onChange={(e) => setFormData({...formData, userSegment: e.target.value})}
-              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
-            >
-              <option value="New User">新客 (New User)</option>
-              <option value="1-2 Orders">1-2单用户 (1-2 Orders)</option>
-              <option value="3-4 Orders">3-4单用户 (3-4 Orders)</option>
-              <option value="5+ Active">5+单活跃 (5+ Active)</option>
-              <option value="5+ Churned">5+单沉默 (5+ Churned)</option>
-              <option value="Universal">无差别普惠 (Universal)</option>
-            </select>
-          </div>
+          {/* 提报提交按键 */}
+          <button 
+            type="submit" 
+            disabled={isUploading} 
+            className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs md:text-sm transition-all flex items-center justify-center gap-2 ${
+              isUploading 
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                : 'bg-[#333] text-[#FFD111] hover:bg-black hover:shadow-md'
+            }`}
+          >
+            {isUploading ? (
+              <><Loader2 size={16} className="animate-spin" /> Ingesting Asset Pipeline...</>
+            ) : (
+              <><Zap size={14} /> Commit to Intelligence Hub / 同步双写至资产库</>
+            )}
+          </button>
 
-          <div className="space-y-3">
-            <label className="block text-sm font-black text-gray-400 tracking-widest uppercase">Asset Type</label>
-            <select 
-              value={formData.assetType}
-              onChange={(e) => setFormData({...formData, assetType: e.target.value})}
-              className="w-full border-2 border-gray-100 p-5 rounded-none font-bold text-lg outline-none focus:border-[#333]"
-            >
-              <option value="Welcome Coupon Pack">新客券包 (Welcome Pack)</option>
-              <option value="General Voucher">常规优惠券 (General Voucher)</option>
-              <option value="Campaign Event">大促/主题活动 (Campaign Event)</option>
-              <option value="Delivery Subsidy">运费补贴 (Delivery Subsidy)</option>
-              <option value="Homepage Pop-up">首页弹窗 (Homepage Pop-up)</option>
-              <option value="Push Landing Page">定向召回落地页 (Push Landing)</option>
-              <option value="VIP Pricing">会员专享价 (VIP Pricing)</option>
-              <option value="Checkout Surcharge">结算页异常加价 (Checkout Surcharge)</option>
-            </select>
-          </div>
-          
-        </div>
-
-        {/* 提交按钮 */}
-        <button 
-          onClick={handleSubmit}
-          disabled={isUploading || !file}
-          className={`w-full py-6 flex items-center justify-center gap-3 font-black italic tracking-widest text-2xl transition-all ${
-            isUploading || !file 
-              ? 'bg-[#E5E7EB] text-gray-400 cursor-not-allowed' 
-              : 'bg-[#E5E7EB] text-[#A3A8B1] hover:bg-[#333] hover:text-white'
-          }`}
-        >
-          <Database size={28} /> 
-          {isUploading ? 'SYNCING...' : 'SYNC TO DATABASE'}
-        </button>
+        </form>
 
       </div>
     </div>
