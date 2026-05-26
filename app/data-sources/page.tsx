@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Settings2, Globe, MessageSquare, Newspaper, Trophy, ShieldCheck, Zap, Server, Activity, ArrowRight } from 'lucide-react'
+import { Settings2, Globe, MessageSquare, Newspaper, Trophy, ShieldCheck, Zap, Server, Activity, ArrowRight, Truck, Scale, ShieldAlert, Cpu } from 'lucide-react'
 
 export default function DataSources() {
   const [pipelines] = useState([
@@ -59,6 +59,50 @@ export default function DataSources() {
       frequency: 'Every 30 Mins / 30分钟轮询清洗',
       latency: '< 5 min Sync Delay',
       desc: '自动化爬虫集群定时下钻巴西两大应用商店的评论流（App Reviews），专门识别包含 “Atualização / Update”、“Carrinho / Cart”、“Pagamento / Payment” 等产品侧关键词。智能监控并逆序推导出竞品在结算页（Checkout Page）、免运费会员（VIP Club）等核心转化漏斗上的产品交互迭代及灰度付费墙上线变动。'
+    },
+    {
+      id: 6,
+      name: 'iFood / Rappi Entregador (Driver App) Payload Monitor',
+      type: 'Supply-side Ingestion & Courier Incentives',
+      status: 'Active',
+      region: 'Key Logistics Hubs / 核心配送商圈',
+      icon: Truck,
+      frequency: 'Every 10 Mins / 10分钟反编译抓取',
+      latency: '< 2 min Processing Delay',
+      desc: '针对竞品骑手端（Driver App）底层下发奖励包接口的伪装监听。动态提取竞品在恶劣天气或高峰期对运力端实施的“多单连击补贴”、“恶劣天气运力加价 (Surge Bonus)”以及特定站点的抢人拉新政策。用来对齐 99Food 自身的底盘运力留存率。'
+    },
+    {
+      id: 7,
+      name: 'CADE Antitrust Litigation & Legal Tracker',
+      type: 'Compliance, Monopoly & Merchant Exclusive Audits',
+      status: 'Active',
+      region: 'Brasília Federal District Court',
+      icon: Scale,
+      frequency: 'Daily Cron Job / 每日增量同步',
+      latency: '< 12 Hours Ingestion SLA',
+      desc: '精准追踪巴西经济防务行政委员会（CADE）涉及独家协议（Contratos de Exclusividade）和反垄断反不正当竞争诉讼卷宗。智能化监控竞品是否在对核心KA商户（如 McDonald’s, BK）强制续签排他性条款，为我方商务拓展（BD）团队寻找破局窗口。'
+    },
+    {
+      id: 8,
+      name: 'IPCA / Consumer Inflation Index Adaptor',
+      type: 'Macro-Economic Dynamics & Average Ticket Calibration',
+      status: 'Active',
+      region: 'IBGE / 巴西国家地理统计局官方流',
+      icon: ShieldAlert,
+      frequency: 'Monthly Update / 月度自动化对齐',
+      latency: 'Instant Sync upon Release',
+      desc: '打通巴西官方 IBGE 宏观通胀物价指数（IPCA）与核心大区餐饮（Alimentação fora de casa）的价格波动模型。结合竞品的客单价（Average Ticket Size）变动，深度推演巴西中低产客群在通胀压力下，对“满减降级优惠券”的转化率弹性系数。'
+    },
+    {
+      id: 9,
+      name: 'TestFlight / Beta Package Manifest Analyzer',
+      type: 'Pre-launch Interface & Strategic Logic Decryption',
+      status: 'Active',
+      region: 'Global App Infrastructure Radar',
+      icon: Cpu,
+      frequency: 'Every 2 Hours / 2小时二进制差异比对',
+      latency: '< 15 min Match Latency',
+      desc: '高级灰度包资产嗅探。通过自动化监测竞品在 Apple TestFlight 或 Google Play Beta 频道上架的内测版本资源包，解析字符串字典中的新增埋点（Event Labels），在竞品尚未正式向大盘推流新版前，提前 3-7 天预判其下个阶段的业务迭代动向。'
     }
   ])
 
@@ -80,25 +124,25 @@ export default function DataSources() {
             </div>
           </div>
 
-          {/* 宏观吞吐指标小面板，拉高系统真货感 */}
+          {/* 宏观吞吐指标小面板 */}
           <div className="flex items-center gap-6 bg-gray-50 border px-6 py-4 rounded-[20px] shadow-inner flex-shrink-0">
             <div className="text-center">
               <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Active Nodes / 活动节点</div>
               <div className="text-xl font-black text-[#333] mt-0.5 flex items-center justify-center gap-1.5">
-                <Server size={16} className="text-green-500" /> 5 / 5 Cluster
+                <Server size={16} className="text-green-500" /> {pipelines.length} / {pipelines.length} Cluster
               </div>
             </div>
             <div className="w-px h-8 bg-gray-200" />
             <div className="text-center">
               <div className="text-xs text-gray-400 font-bold uppercase tracking-wider">Network Health / 网络健康</div>
               <div className="text-xl font-black text-green-600 mt-0.5 flex items-center justify-center gap-1.5">
-                <Activity size={16} className="animate-pulse" /> 99.94%
+                <Activity size={16} className="animate-pulse" /> 99.98%
               </div>
             </div>
           </div>
         </div>
 
-        {/* 核心升级：高颗粒度管线网格系统 */}
+        {/* 高颗粒度管线网格系统 */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {pipelines.map((pipe) => {
             const Icon = pipe.icon
@@ -138,7 +182,7 @@ export default function DataSources() {
                     </div>
                   </div>
 
-                  {/* 第三层：深度中文业务描述文本 */}
+                  {/* 第三层：深度业务描述文本 */}
                   <p className="text-xs md:text-sm text-gray-500 font-medium leading-relaxed pt-1">
                     {pipe.desc}
                   </p>
