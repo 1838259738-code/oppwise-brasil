@@ -39,14 +39,13 @@ export async function POST(req: NextRequest) {
     const competitorName = competitorId === '1' ? 'KeeTa' : 'iFood'
 
     // ==========================================
-    // 🧠 2. 战略级 AI 视觉与情境解析引擎 (标点符号已完美修复)
+    // 🧠 2. 战略级 AI 视觉与情境解析引擎 (去供应商化 / 延长超时)
     // ==========================================
     let aiSummary = "AI analysis failed, but record was saved."
     const apiKey = process.env.DEEPSEEK_API_KEY
     
     if (apiKey) {
       try {
-        // 重新设计高级专家角色（注入拉美外卖市场的强商业逻辑）
         const systemPrompt = `You are the Chief Growth Officer and Senior Competitive Intelligence Lead for 99Food in Latin America. 
 You possess deep expertise in the Brazilian food delivery landscape (iFood, KeeTa, Rappi). 
 Your task is to analyze the user-uploaded field intelligence and decode the competitor's hidden strategic intent. 
@@ -66,7 +65,6 @@ Format your response perfectly in Markdown with the following bold, executive st
 
 Rules: Ensure your insight is sharp, commercial, and professional. Write the analysis in Chinese, using professional English terms where appropriate (e.g., CAC, AOV, ROI, Churn Rate, Paywall). Avoid vague fluff.`
 
-        // 汇聚前端传入的精细化业务字段，建立多维度上下文
         const userPrompt = `[CRITICAL FIELD DATA FOR CONTEXTUAL ANALYSIS]
 - Competitor Name: ${competitorName}
 - Market/City Location: ${city}
@@ -78,7 +76,6 @@ Rules: Ensure your insight is sharp, commercial, and professional. Write the ana
 
 Please generate a comprehensive, deep-dive analysis based on the inputs above.`
 
-        // 修复了标点符号，统一外层为单引号，Authorization 的 Bearer 字符串完美闭合
         const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -90,7 +87,8 @@ Please generate a comprehensive, deep-dive analysis based on the inputs above.`
             ],
             temperature: 0.4
           }),
-          signal: AbortSignal.timeout(8000) 
+          // 🚀 核心修复：放宽超时门槛至 30 秒，确保大模型有充足时间输出完整长文本
+          signal: AbortSignal.timeout(30000) 
         })
 
         if (dsResponse.ok) {
@@ -98,16 +96,16 @@ Please generate a comprehensive, deep-dive analysis based on the inputs above.`
           aiSummary = dsData.choices[0].message.content.trim()
         } else {
           const errText = await dsResponse.text()
-          aiSummary = `DeepSeek Core Error: ${dsResponse.status}. Unable to complete tactical render.`
+          aiSummary = `AI Core Error: ${dsResponse.status}. Unable to complete tactical render.`
         }
       } catch (aiError) {
-        aiSummary = "DeepSeek AI pipeline timeout or error."
+        aiSummary = "AI Strategic Pipeline timeout or connection density error."
       }
     } else {
-      aiSummary = "DeepSeek API Key is missing in Vercel environment."
+      aiSummary = "AI Core API Key configuration error in the current deployment environment."
     }
 
-    // 3. 写入数据库 field_intel 表
+    // 3. 写入数据库
     const { data: fieldData, error: fieldError } = await supabase
       .from('field_intel')
       .insert([{
@@ -125,7 +123,7 @@ Please generate a comprehensive, deep-dive analysis based on the inputs above.`
 
     if (fieldError) throw fieldError
 
-    // 同步到 materials 表 (Intelligence Hub)
+    // 同步到 materials
     await supabase.from('materials').insert([{
       titel: `[Field Intel] ${title}`,
       beschreibung: `Type: ${screenType} | Segment: ${userProfile}\n\n${aiSummary}`,

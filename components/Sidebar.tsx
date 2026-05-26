@@ -13,13 +13,13 @@ import {
   FileBox,
   Zap,
   ClipboardList,
-  Menu, // <-- 引入汉堡包图标
-  X     // <-- 引入关闭图标
+  Menu,
+  X
 } from 'lucide-react'
 
 export default function Sidebar() {
   const pathname = usePathname()
-  // 控制移动端侧边栏的开关状态
+  // 控制移动端侧边栏的开关状态 / Responsive Drawer State
   const [isOpen, setIsOpen] = useState(false)
 
   // 监听路由变化，移动端点击链接后自动收起侧边栏
@@ -40,7 +40,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 🚀 移动端专属：悬浮菜单按钮 (仅在小屏幕显示) */}
+      {/* 🚀 移动端专属：悬浮菜单按钮 / Floating Menu Button for Mobile */}
       <button
         onClick={() => setIsOpen(true)}
         className="lg:hidden fixed bottom-6 right-6 z-40 bg-[#FFD111] text-[#333] p-4 rounded-full shadow-2xl hover:scale-105 transition-transform border-2 border-[#333]"
@@ -48,7 +48,7 @@ export default function Sidebar() {
         <Menu size={24} />
       </button>
 
-      {/* 🚀 移动端专属：黑色半透明遮罩层 (点击空白处收起菜单) */}
+      {/* 🚀 移动端专属：黑色半透明遮罩层 / Backdrop Overlay */}
       {isOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm transition-opacity"
@@ -56,13 +56,13 @@ export default function Sidebar() {
         />
       )}
 
-      {/* 侧边栏主体：加入动态 transform 实现丝滑抽屉效果 */}
+      {/* 侧边栏主体 / Main Sidebar Layout */}
       <div 
         className={`fixed inset-y-0 left-0 z-50 w-72 bg-[#1E1E1E] flex flex-col border-r border-[#333] shadow-2xl transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* 移动端专属：右上角关闭按钮 */}
+        {/* 移动端专属：右上角关闭按钮 / Close Button */}
         <button 
           onClick={() => setIsOpen(false)}
           className="lg:hidden absolute top-6 right-6 text-gray-400 hover:text-white"
@@ -70,7 +70,7 @@ export default function Sidebar() {
           <X size={24} />
         </button>
 
-        {/* Logo 区域 */}
+        {/* Logo 区域 / Branding Area */}
         <div className="p-8">
           <Link href="/" className="flex flex-col gap-1 group">
             <div className="flex items-center gap-2">
@@ -87,8 +87,8 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        {/* 导航菜单 */}
-        <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
+        {/* 导航菜单 / Navigation Items */}
+        <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto pb-8">
           {navItems.map((item) => {
             const isActive = pathname === item.path
             const Icon = item.icon
@@ -110,18 +110,6 @@ export default function Sidebar() {
           })}
         </div>
 
-        {/* 底部版本信息 */}
-        <div className="p-6 m-4 bg-black/20 rounded-[24px] border border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-[#FFD111] to-orange-400 p-[2px]">
-              <div className="h-full w-full bg-[#333] rounded-full border-2 border-[#1E1E1E]" />
-            </div>
-            <div>
-              <p className="text-white text-xs font-bold">Admin User</p>
-              <p className="text-gray-500 text-[10px] uppercase font-bold">Growth Team</p>
-            </div>
-          </div>
-        </div>
       </div>
     </>
   )

@@ -61,7 +61,7 @@ export default function MaterialLibrary() {
                 INTELLIGENCE HUB
               </h2>
               <p className="text-gray-400 text-xs font-medium mt-1.5 max-w-xs">
-                此模块包含 99Food 核心竞品敏感商业机密，已启用作品集安全加密保护。
+                出于对已有材料的保护，请输入密码后继续查看后续内容。
               </p>
             </div>
           </div>
