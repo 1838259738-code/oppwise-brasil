@@ -14,7 +14,8 @@ import {
   Zap,
   ClipboardList,
   Menu,
-  X
+  X,
+  Mail // <-- 引入邮箱图标
 } from 'lucide-react'
 
 export default function Sidebar() {
@@ -62,7 +63,7 @@ export default function Sidebar() {
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* 移动端专属：右上角关闭按钮 / Close Button */}
+        {/* 移动端专属：右上角关闭按钮 */}
         <button 
           onClick={() => setIsOpen(false)}
           className="lg:hidden absolute top-6 right-6 text-gray-400 hover:text-white"
@@ -71,7 +72,7 @@ export default function Sidebar() {
         </button>
 
         {/* Logo 区域 / Branding Area */}
-        <div className="p-8">
+        <div className="p-8 flex-shrink-0">
           <Link href="/" className="flex flex-col gap-1 group">
             <div className="flex items-center gap-2">
               <div className="bg-[#FFD111] p-1.5 rounded-lg group-hover:scale-110 transition-transform">
@@ -88,7 +89,7 @@ export default function Sidebar() {
         </div>
 
         {/* 导航菜单 / Navigation Items */}
-        <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto pb-8">
+        <div className="flex-1 px-4 space-y-2 mt-4 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = pathname === item.path
             const Icon = item.icon
@@ -108,6 +109,33 @@ export default function Sidebar() {
               </Link>
             )
           })}
+        </div>
+
+        {/* 🚀 底部重构：高规格个人版权与一键联络名片区 */}
+        <div className="p-5 m-4 bg-black/30 rounded-[24px] border border-white/5 flex flex-col gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            {/* 头像徽章 */}
+            <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-[#FFD111] to-orange-500 p-[1.5px] flex-shrink-0">
+              <div className="h-full w-full bg-[#333] rounded-full flex items-center justify-center text-[10px] font-black text-[#FFD111] tracking-tighter font-mono">
+                RC
+              </div>
+            </div>
+            <div>
+              <p className="text-white text-xs font-black tracking-wide">Robert Cao</p>
+              <p className="text-gray-500 text-[9px] uppercase font-bold tracking-wider">Product Architect</p>
+            </div>
+          </div>
+          
+          {/* 一键邮件联络触发按钮 */}
+          <a 
+            href="mailto:225030237@link.cuhk.edu.cn" 
+            className="flex items-center gap-2 bg-white/5 hover:bg-[#FFD111] text-gray-400 hover:text-[#333] p-2 rounded-xl transition-all border border-white/5 hover:border-[#FFD111] group overflow-hidden"
+          >
+            <Mail size={13} className="flex-shrink-0 text-gray-500 group-hover:text-[#333]" />
+            <span className="text-[10px] font-mono font-bold truncate tracking-tight">
+              225030237@link.cuhk.edu.cn
+            </span>
+          </a>
         </div>
 
       </div>
