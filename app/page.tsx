@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@supabase/supabase-js'
 
-// 🚀 核心升级：强行禁用 Next.js 的服务端编译静态缓存，每次进入或刷新首页时，百分之百重新执行后端查询
+// 🚀 核心：禁用缓存，每次进入或刷新首页时，百分之百重新执行后端查询
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -12,7 +12,7 @@ const supabase = createClient(supabaseUrl, supabaseKey)
 
 export default async function HomePage() {
   
-  // 2. 封装容错查询 / Robust Error-Prone Fetcher
+  // 2. 封装容错查询
   const getCount = async (table: string, match?: object) => {
     let query = supabase.from(table).select('*', { count: 'exact', head: true })
     if (match) query = query.match(match)
@@ -38,7 +38,6 @@ export default async function HomePage() {
   ])
 
   // 4. 动态计算最后同步时间 / Calculate Last Sync Timestamp Dynamically
-  // 如果数据库有记录则读取最新一条，若为空则直接以当前刷新的系统时间作为高情商动态兜底
   const latestSyncTimestamp = autoEntries.length > 0 && autoEntries[0]?.created_at
     ? new Date(autoEntries[0].created_at)
     : new Date()
@@ -46,15 +45,27 @@ export default async function HomePage() {
   const syncTimeString = `${latestSyncTimestamp.toLocaleString('zh-CN', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })} / ${latestSyncTimestamp.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto py-8 px-4">
+    <div className="space-y-10 max-w-7xl mx-auto py-8 px-4">
       
-      {/* 标题区 / Title Area */}
-      <div>
-        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Dashboard / 数据主控台</h2>
-        <p className="text-gray-500 mt-1">Market Intelligence Overview / 全量市场情报综述</p>
+      {/* 🚀 视觉洗白：重构为高级、扁平的 99Food 官方中台双语标题区 */}
+      <div className="border-b border-gray-100 pb-6">
+        <div className="flex items-center gap-3">
+          {/* 用一个精致的垂直黄色色块取代之前突兀的粗红线 */}
+          <div className="w-1.5 h-8 bg-[#FFD111] rounded-full" />
+          <h2 className="text-2xl md:text-3xl font-black text-[#333] tracking-tight">
+            Dashboard
+          </h2>
+          <span className="text-gray-300 font-light text-xl md:text-2xl">|</span>
+          <span className="text-gray-500 font-bold text-base md:text-lg mt-0.5">
+            数据主控台
+          </span>
+        </div>
+        <p className="text-xs md:text-sm font-medium text-gray-400 mt-2 ml-4">
+          Market Intelligence Overview & Real-time Signals Tracker / 全量市场竞争情报综述与实效信号追踪
+        </p>
       </div>
 
-      {/* 数据看板：全量双语重构 / Analytics Cards with Bi-lingual Labels */}
+      {/* 数据看板卡片区 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         
         <div className="bg-white p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 flex flex-col justify-between">
@@ -73,7 +84,6 @@ export default async function HomePage() {
           <p className="text-4xl font-extrabold text-gray-900 mt-2 relative z-10">{unreadCount}</p>
         </div>
         
-        {/* ⚡ 动态刷新时戳卡片 / Real-time Dynamic Sync Card */}
         <div className="bg-gray-900 p-6 rounded-3xl shadow-lg border border-gray-800 flex flex-col justify-between relative">
           <div className="absolute top-4 right-4 flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
@@ -86,7 +96,7 @@ export default async function HomePage() {
         </div>
       </div>
 
-      {/* 最新动态列表 / Latest Activity Feed */}
+      {/* 最新动态列表 */}
       <div>
         <div className="flex justify-between items-end mb-6">
           <div className="space-y-0.5">
@@ -124,7 +134,6 @@ export default async function HomePage() {
                     {e.zusammenfassung || 'No detailed strategy digest available. / 暂无结构化摘要描述。'}
                   </p>
                   
-                  {/* 元数据脚注双语化 */}
                   <div className="flex items-center gap-4 mt-4 text-[10px] font-black text-gray-400 uppercase tracking-wider font-mono">
                     <span className="flex items-center gap-1 bg-gray-50 px-2 py-1 rounded border border-gray-100">
                       <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
