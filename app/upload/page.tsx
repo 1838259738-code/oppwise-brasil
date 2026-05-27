@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { UploadCloud, Loader2, CheckCircle2, AlertTriangle, Layers, Smartphone, Tag, Bookmark } from 'lucide-react'
+import { UploadCloud, Loader2, CheckCircle2, AlertTriangle, Layers, Smartphone, Tag, Bookmark, MapPin } from 'lucide-react'
 
 export default function UploadMaterial() {
   const [file, setFile] = useState<File | null>(null)
@@ -10,10 +9,12 @@ export default function UploadMaterial() {
   const [titel, setTitel] = useState('')
   const [notizen, setNotizen] = useState('')
   
-  // 🚀 核心运营勾选状态回归 / High-Granularity Operational Metadata
+  // 结构化运营勾选状态
   const [userProfile, setUserProfile] = useState('New User / 沉默新客')
   const [screenType, setScreenType] = useState('Homepage Banner / 首页大图')
   const [selectedTag, setSelectedTag] = useState('Campaign / 破局大促')
+  const [competitorId, setCompetitorId] = useState('1') // 1: KeeTa, 2: iFood
+  const [city, setCity] = useState('São Paulo (SP)')
 
   const [isUploading, setIsUploading] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
@@ -36,47 +37,40 @@ export default function UploadMaterial() {
     setIsUploading(true)
     setStatus(null)
 
+    // 🚀 核心改变：将所有结构化数据打入 FormData，打包空投给后端 API
+    const formData = new FormData()
+    formData.append('files', file)
+    formData.append('title', titel.trim())
+    formData.append('competitorId', competitorId)
+    formData.append('city', city)
+    formData.append('screenType', screenType)
+    formData.append('userProfile', userProfile)
+    formData.append('tags', selectedTag)
+    formData.append('notes', notizen.trim())
+
     try {
-      // 1. 上传物理图片至 Supabase Storage
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `materials/${fileName}`
+      // 呼叫跑在后端的安全情报审计网关，彻底降维打击 RLS 限制
+      const res = await fetch('/api/field-intel', {
+        method: 'POST',
+        body: formData,
+      })
 
-      const { error: uploadError } = await supabase.storage
-        .from('competitor-assets')
-        .upload(filePath, file)
+      const result = await res.json()
 
-      if (uploadError) throw uploadError
+      if (!res.ok || result.error) {
+        throw new Error(result.error || 'Server ingestion rejected.')
+      }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('competitor-assets')
-        .getPublicUrl(filePath)
-
-      // 2. 将包含勾选标签的完整元数据写入 field_intel 核心大盘
-      const { error: dbError } = await supabase
-        .from('field_intel')
-        .insert({
-          titel: titel.trim(),
-          url: publicUrl,
-          notizen: notizen.trim(),
-          user_profile: userProfile,  // 写入真实勾选的用户分层
-          screen_type: screenType,    // 写入真实勾选的页面类型
-          tags: selectedTag,          // 写入真实勾选的策略标签
-          stadt: 'São Paulo (SP)',
-          created_at: new Date().toISOString()
-        })
-
-      if (dbError) throw dbError
-
-      setStatus({ type: 'success', msg: 'Asset synchronized to Operatix-B Material Library! / 素材及运营标签已成功同步至图库大盘！' })
-      // 重置表单
+      setStatus({ type: 'success', msg: 'Asset route secure! AI Multi-modal parsing complete and saved to Library! / 提报成功！已通过后端安全网关触发多模态像素识图并沉淀至图库！' })
+      
+      // 清空表单
       setFile(null)
       setPreviewUrl(null)
       setTitel('')
       setNotizen('')
     } catch (err: any) {
       console.error(err)
-      setStatus({ type: 'error', msg: err.message || 'Ingestion critical failure.' })
+      setStatus({ type: 'error', msg: `Ingestion Failed: ${err.message || err}` })
     } finally {
       setIsUploading(false)
     }
@@ -92,7 +86,7 @@ export default function UploadMaterial() {
             <UploadCloud className="text-[#FFD111]" size={32} /> Ingest New Material
           </h2>
           <p className="text-gray-400 font-medium text-xs md:text-sm mt-1">
-            回传前线竞对高时效视觉资产，激活 Operatix-B 分布式决策管线
+            通过后端的越障安全管线（Bypassed Secure Pipeline）提报高时效情报，激活多模态像素审计
           </p>
         </div>
 
@@ -134,20 +128,39 @@ export default function UploadMaterial() {
             <label className="block text-xs font-black text-gray-400 uppercase tracking-wider">Step 2: Strategy Manifest Calibration</label>
             
             <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><Bookmark size={12}/> 战术情报简短标题</label>
+              <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><Bookmark size={12}/> 战术情报简短标题 *</label>
               <input 
+                required
                 type="text" value={titel} onChange={(e) => setTitel(e.target.value)}
                 placeholder="例如: iFood 圣保罗核心区周末运费降击" 
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#333]"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#333] text-[#333]"
               />
             </div>
 
-            {/* 🚀 勾选器 1：用户分层 */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500">归属竞品</label>
+                <select value={competitorId} onChange={(e) => setCompetitorId(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333]">
+                  <option value="1">KeeTa (Yellow)</option>
+                  <option value="2">iFood (Red)</option>
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><MapPin size={12}/> 目标城市</label>
+                <select value={city} onChange={(e) => setCity(e.target.value)} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333]">
+                  <option value="São Paulo (SP)">São Paulo (SP)</option>
+                  <option value="Rio de Janeiro (RJ)">Rio de Janeiro (RJ)</option>
+                  <option value="Belo Horizonte (BH)">Belo Horizonte (BH)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 勾选器 1：用户分层 */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><Layers size={12}/> 目标用户分层 (User Profile)</label>
               <select 
                 value={userProfile} onChange={(e) => setUserProfile(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333] focus:outline-none focus:border-[#333]"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333]"
               >
                 <option value="New User / 沉默新客">New User / 沉默新客</option>
                 <option value="High-Frequency / 高频核心客">High-Frequency / 高频核心客</option>
@@ -156,12 +169,12 @@ export default function UploadMaterial() {
               </select>
             </div>
 
-            {/* 🚀 勾选器 2：页面触达场景 */}
+            {/* 勾选器 2：页面触达场景 */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><Smartphone size={12}/> 触达场景屏效 (Screen Type)</label>
               <select 
                 value={screenType} onChange={(e) => setScreenType(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333] focus:outline-none focus:border-[#333]"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333]"
               >
                 <option value="Homepage Banner / 首页大图">Homepage Banner / 首页大图</option>
                 <option value="Checkout Paywall / 结算拦截页">Checkout Paywall / 结算拦截页</option>
@@ -170,12 +183,12 @@ export default function UploadMaterial() {
               </select>
             </div>
 
-            {/* 🚀 勾选器 3：核心策略标签 */}
+            {/* 勾选器 3：核心策略标签 */}
             <div className="space-y-1">
               <label className="text-xs font-bold text-gray-500 flex items-center gap-1"><Tag size={12}/> 核心竞争策略 (Tags)</label>
               <select 
                 value={selectedTag} onChange={(e) => setSelectedTag(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333] focus:outline-none focus:border-[#333]"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-[#333]"
               >
                 <option value="Campaign / 破局大促">Campaign / 破局大促</option>
                 <option value="Taxa Grátis / 免运费阻击">Taxa Grátis / 免运费阻击</option>
@@ -189,7 +202,7 @@ export default function UploadMaterial() {
               <textarea 
                 rows={2} value={notizen} onChange={(e) => setNotizen(e.target.value)}
                 placeholder="录入前线观察到的突发细节..." 
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:border-[#333] resize-none"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none resize-none text-[#333]"
               />
             </div>
 
@@ -199,9 +212,9 @@ export default function UploadMaterial() {
               className="w-full bg-[#333] text-[#FFD111] py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 disabled:opacity-40 shadow-lg"
             >
               {isUploading ? (
-                <><Loader2 size={14} className="animate-spin" /> Ingesting Asset Matrix...</>
+                <><Loader2 size={14} className="animate-spin" /> API Route Processing...</>
               ) : (
-                'Confirm Ingestion / 提报至全量资产库'
+                'Confirm Ingestion / 通过安全网关提报'
               )}
             </button>
 
