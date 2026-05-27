@@ -21,13 +21,16 @@ export async function POST(req: NextRequest) {
 
     const file = files[0]
 
-    // 1. 上传图片到 Supabase Storage
+    // 1. 读取文件并转换为 Base64 格式（用于喂给 Vision 多模态模型）
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const base64Image = buffer.toString('base64')
+    const mimeType = file.type || 'image/jpeg'
+
+    // 2. 上传图片到 Supabase Storage
     const fileExt = file.name.split('.').pop()
     const fileName = `field_${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
     const filePath = `uploads/${fileName}`
-
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     const { error: storageError } = await supabase.storage
       .from('intelligence')
@@ -39,55 +42,70 @@ export async function POST(req: NextRequest) {
     const competitorName = competitorId === '1' ? 'KeeTa' : 'iFood'
 
     // ==========================================
-    // 🧠 2. 战略级 AI 视觉与情境解析引擎 (去供应商化 / 延长超时)
+    // 🧠 3. 战略级 AI 像素视觉硬核精算引擎 (物理识图重构)
     // ==========================================
     let aiSummary = "AI analysis failed, but record was saved."
     const apiKey = process.env.DEEPSEEK_API_KEY
     
     if (apiKey) {
       try {
-        const systemPrompt = `You are the Chief Growth Officer and Senior Competitive Intelligence Lead for 99Food in Latin America. 
-You possess deep expertise in the Brazilian food delivery landscape (iFood, KeeTa, Rappi). 
-Your task is to analyze the user-uploaded field intelligence and decode the competitor's hidden strategic intent. 
+        // 🔥 施加高压统治的 System Prompt，逼迫大模型死盯像素，禁止脑补
+        const systemPrompt = `你现在是 99Food 部署在拉美前线的最高阶“AI 视觉情报精算引擎（AI Vision Strategic Engine）”。
+你接入该系统的核心任务是：突破人眼的局限，像素级深度解构竞对（iFood、KeeTa、Rappi）的客户端截图，提取出高机密的补贴手段和价格欺诈/心理学策略。
 
-Format your response perfectly in Markdown with the following bold, executive structure:
-### 🎯 战术定位 (Tactics Breakdown)
-* **触达场景与核心痛点**: [分析截图所在的 Screen Context，推测用户在何种场景下被触发该机制]
-* **用户生命周期指向**: [结合 Target Segment，解读竞品为何在此节点对该类用户进行该动作]
+⚠️ 【核心红线禁令】：
+1. 严禁胡编乱造、严禁说毫无数据支撑的废话，必须假设用户回传这张截图，是因为截图的画面细节里隐藏着精细的价格攻势。请把焦点死死锁定在图片像素本身！
+2. 绝对不允许仅仅根据用户传过来的辅助分类标签进行套话复读。
 
-### 💰 补贴与定价精算 (Subsidies & Pricing)
-* **杠杆机制机制**: [精准拆解其“新客券包/运费减免/VIP专享价”的真实ROI算盘，竞品是在亏本赚流量还是在提高单均毛利？]
-* **供给端转嫁特征**: [评估其活动是由平台单方面疯狂倒贴，还是联合 B2B 商家侧进行的联合扣点扣减？]
+请对图片画面中真正出现的以下元素执行拉网式审计，并产出专家级长篇内参：
+1. 【隐藏价格梯度解密】：仔细辨认图片中的各种“小字”、原价划线价与现价的真实对冲。是否存在配送费（Taxa de entrega）阶梯式减免、是否绑定了特权会籍（如 iFood Clube）才能触发。算出其真实的 AOV 拦截阻击线。
+2. 【视觉欺诈与行动点拦截】：图片中的 Banner 视觉、弹窗、或者结算页，是如何利用色彩、高亮、倒计时（Contagem regressiva）来强行洗脑用户下单的？竞品在流失路径上设下了怎样的 Paywall？
+3. 【供给端商户排他特征】：图片中露出的具体商户名称是什么？是否有“Exclusive / Exclusivo”标签？从画面排版能看出竞品本周在主推哪类 KA 品类？
 
-### ⚔️ 99Food 破局建议 (Strategic Defense)
-* **大盘威胁评级**: [低/中/高 - 给出具体原因]
-* **反制行动指南**: [给 99Food 的一线 Growth / Operations 团队提出 2 条具体可执行、防御或对攻的快反方案]
+请使用严格、冷峻的大厂产品与运营总监视角，使用中英双语输出结构化的反制行动指南（Growth Strategy Framework）。
+格式必须使用系统的结构化标记：
+### 🎯 前线视觉像素级精算 (Pixel-Level Vision Audit)
+* **像素点细节还原**: [在此诚实打印你从图片像素、数字、横幅小字中真正看出来的价格和策略事实，没有看到就说没看到，绝不臆想]
 
-Rules: Ensure your insight is sharp, commercial, and professional. Write the analysis in Chinese, using professional English terms where appropriate (e.g., CAC, AOV, ROI, Churn Rate, Paywall). Avoid vague fluff.`
+### 💰 补贴与价格梯度解密 (Subsidy & AOV Calibration)
+* **杠杆拆解**: [拆解真实的折扣比例、起送价门槛、配送费扣点转嫁，以及竞品是在亏本赚流量还是在提高单均毛利]
 
-        const userPrompt = `[CRITICAL FIELD DATA FOR CONTEXTUAL ANALYSIS]
+### ⚔️ 99Food 产品与用户运营反制案 (Growth Execution Playbook)
+* **战术对攻方案**: [给产品和用户运营团队最直接、可立刻灰度上线的反制策略代码注入或券包部署建议]`
+
+        const userPrompt = `[CRITICAL FIELD DATA FOR CONTEXTUAL REFERENCE]
 - Competitor Name: ${competitorName}
 - Market/City Location: ${city}
 - Screen Context/Touchpoint: ${screenType}
 - Target User Segment (Life Cycle): ${userProfile}
 - Intelligence Title: ${title}
 - Operation Tags: ${tags}
-- Hand-written Field Notes by Local Staff: "${notes}"
+- Hand-written Field Notes by Local Staff: "${notes}"`
 
-Please generate a comprehensive, deep-dive analysis based on the inputs above.`
-
+        // 🚀 核心重构：调用多模态 Vision 模型，并将图片 Base64 塞入消息队列
         const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
           body: JSON.stringify({
-            model: "deepseek-chat",
+            model: "deepseek-vision", // <-- 切换为官方视觉多模态模型
             messages: [
-              { role: "system", content: systemPrompt }, 
-              { role: "user", content: userPrompt }
+              { role: "system", content: systemPrompt },
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: userPrompt },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: `data:${mimeType};base64,${base64Image}` // <-- 物理输送图片 Base64
+                    }
+                  }
+                ]
+              }
             ],
-            temperature: 0.4
+            temperature: 0.2, // 调低随机度，确保严谨看图说话
+            max_tokens: 1500
           }),
-          // 🚀 核心修复：放宽超时门槛至 30 秒，确保大模型有充足时间输出完整长文本
           signal: AbortSignal.timeout(30000) 
         })
 
@@ -96,16 +114,16 @@ Please generate a comprehensive, deep-dive analysis based on the inputs above.`
           aiSummary = dsData.choices[0].message.content.trim()
         } else {
           const errText = await dsResponse.text()
-          aiSummary = `AI Core Error: ${dsResponse.status}. Unable to complete tactical render.`
+          aiSummary = `AI Core Error: ${dsResponse.status}. Unable to complete vision tactical render.`
         }
       } catch (aiError) {
-        aiSummary = "AI Strategic Pipeline timeout or connection density error."
+        aiSummary = "AI Strategic Pipeline vision-ingestion timeout or connection density error."
       }
     } else {
       aiSummary = "AI Core API Key configuration error in the current deployment environment."
     }
 
-    // 3. 写入数据库
+    // 4. 写入前线情报大盘表
     const { data: fieldData, error: fieldError } = await supabase
       .from('field_intel')
       .insert([{
@@ -123,10 +141,10 @@ Please generate a comprehensive, deep-dive analysis based on the inputs above.`
 
     if (fieldError) throw fieldError
 
-    // 同步到 materials
+    // 🚀 5. 满血联动：同步写入 materials 素材库，把勾选的高颗粒度结构化标签完完整整带过去
     await supabase.from('materials').insert([{
       titel: `[Field Intel] ${title}`,
-      beschreibung: `Type: ${screenType} | Segment: ${userProfile}\n\n${aiSummary}`,
+      beschreibung: `城市商圈: ${city}\n触达场景: ${screenType}\n用户分层: ${userProfile}\n核心标签: ${tags}\n前线手记: ${notes}\n\n${aiSummary}`,
       competitor_id: parseInt(competitorId),
       url: publicUrl,
       aufnahmeDatum: new Date().toISOString(),
