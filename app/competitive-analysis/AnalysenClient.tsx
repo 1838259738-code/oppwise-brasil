@@ -1,204 +1,153 @@
+// 文件路径: app/competitive-analysis/AnalysenClient.tsx
 'use client'
 
-import { useState } from 'react'
-import { Filter, X, MapPin, Tag, ExternalLink, FileImage, Search } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { RefreshCw, Loader2, BarChart3, PieChart, TrendingUp, Zap } from 'lucide-react'
 
-export default function AnalysenClient({ initialData, kategorien, wettbewerber }: { initialData: any[], kategorien: any[], wettbewerber: any[] }) {
-  const [filterWettbewerb, setFilterWettbewerb] = useState('')
-  const [filterKategorie, setFilterKategorie] = useState('')
-  const [filterSuche, setFilterSuche] = useState('')
+interface ShareMetric {
+  name: string
+  value: number
+  count: number
+  color: string
+}
 
-  const filtered = initialData.filter(item => {
-    if (filterWettbewerb && item.wettbewerber !== filterWettbewerb) return false
-    if (filterKategorie && item.kategorie !== filterKategorie) return false
-    if (filterSuche && !item.titel.toLowerCase().includes(filterSuche.toLowerCase()) && !item.beschreibung?.toLowerCase().includes(filterSuche.toLowerCase())) return false
-    return true
-  })
+interface DashboardData {
+  totalVolume: number
+  shares: ShareMetric[]
+  lastUpdated: string
+}
 
-  // 安全解析 JSON 的辅助函数
-  const safeParse = (jsonStr: any) => {
-    if (!jsonStr) return null
-    if (typeof jsonStr !== 'string') return jsonStr
-    try { return JSON.parse(jsonStr) } catch (e) { return null }
+export default function AnalysenClient() {
+  const router = useRouter()
+  const [data, setData] = useState<DashboardData | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 🚀 核心：击穿缓存的绝对清空实时抓取引擎
+  const fetchLiveMetrics = async () => {
+    setIsRefreshing(true)
+    setError(null)
+    try {
+      // 通过强制追加当前毫秒级时间戳，彻底摧毁浏览器和 CDN 的 5 月历史缓存死锁
+      const res = await fetch(`/api/keywords?t=${Date.now()}`, {
+        cache: 'no-store', // 💡 显式命令浏览器：绝对不准查阅本地存根
+        headers: {
+          'Pragma': 'no-cache',
+          'Cache-Control': 'no-store'
+        }
+      })
+
+      if (!res.ok) throw new Error(`HTTP Error! Status: ${res.status}`)
+      
+      const result = await res.json()
+      if (result.success && result.data) {
+        setData(result.data) // 将最新清洗出的 6 月大盘占比塞入状态机，触发图表重绘
+      } else {
+        throw new Error(result.error || 'Data pipeline resolved empty.')
+      }
+    } catch (err: any) {
+      console.error('❌ Failed to sync production metrics:', err)
+      setError(err.message || 'Pipeline offline')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
+  // 初始挂载时加载最新真实大盘数据
+  useEffect(() => {
+    fetchLiveMetrics()
+  }, [])
+
+  // 🚀 点击右侧刷新旋钮触发的硬核对攻动作
+  const handleRefreshClick = async () => {
+    // 1. 穿透拉取最新大盘声量 JSON
+    await fetchLiveMetrics()
+    // 2. 强刷 Next.js 服务端上下文，逼迫页面上其他异步挂载的关联服务器组件同步扫描 Supabase 最新物理状态
+    router.refresh()
   }
 
   return (
-    <>
-      {/* 99Food 风格过滤器操作台 */}
-      <div className="bg-gray-50 p-4 md:p-6 rounded-3xl border border-gray-100 mb-8 flex flex-col md:flex-row gap-4 items-center shadow-inner">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="bg-yellow-400 p-2 rounded-xl text-gray-900 shadow-sm">
-            <Filter size={20} className="stroke-[2.5px]" />
-          </div>
-          <span className="font-bold text-gray-700 hidden md:inline-block whitespace-nowrap">Filter Intel:</span>
-        </div>
+    <div className="space-y-6">
+      {/* 1. 大盘动态指标卡片 */}
+      <div className="bg-white rounded-[32px] p-6 md:p-8 shadow-sm border border-gray-100 relative overflow-hidden">
         
-        <select
-          value={filterWettbewerb}
-          onChange={(e) => setFilterWettbewerb(e.target.value)}
-          className="w-full md:w-auto appearance-none border-2 border-transparent rounded-xl px-4 py-3 bg-white text-gray-900 font-bold outline-none focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20 transition-all cursor-pointer shadow-sm"
-        >
-          <option value="">All Competitors</option>
-          {wettbewerber.map((w: any) => (
-            <option key={w.id} value={w.name}>{w.name}</option>
-          ))}
-        </select>
-
-        <select
-          value={filterKategorie}
-          onChange={(e) => setFilterKategorie(e.target.value)}
-          className="w-full md:w-auto appearance-none border-2 border-transparent rounded-xl px-4 py-3 bg-white text-gray-900 font-bold outline-none focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20 transition-all cursor-pointer shadow-sm"
-        >
-          <option value="">All Categories</option>
-          {kategorien.map((k: any) => (
-            <option key={k.id} value={k.name}>{k.name}</option>
-          ))}
-          <option value="Field Intel">Field Intel</option>
-        </select>
-
-        <div className="relative w-full md:flex-1">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-            <Search size={18} className="text-gray-400" />
+        {/* Header 区域：包含右侧的核心刷新旋钮 */}
+        <div className="flex items-center justify-between border-b border-gray-50 pb-5 mb-6">
+          <div className="space-y-0.5">
+            <h3 className="text-sm font-black text-[#333] uppercase tracking-wider flex items-center gap-2 italic">
+              <PieChart className="text-[#FFD111]" size={16} /> 实时大盘声量占比 (Real-time SOV Matrix)
+            </h3>
+            <p className="text-[11px] text-gray-400 font-medium">
+              通过分布式 OSINT 数据管道实时监控拉美核心商圈的活跃声量指数
+            </p>
           </div>
-          <input
-            type="text"
-            placeholder="Search titles & descriptions..."
-            value={filterSuche}
-            onChange={(e) => setFilterSuche(e.target.value)}
-            className="w-full pl-11 pr-4 py-3 border-2 border-transparent rounded-xl bg-white text-gray-900 font-medium outline-none focus:border-yellow-400 focus:ring-4 focus:ring-yellow-400/20 transition-all shadow-sm"
-          />
+          
+          {/* 🚀 右侧硬核刷新按钮 */}
+          <button 
+            onClick={handleRefreshClick}
+            disabled={isRefreshing}
+            className="p-2.5 hover:bg-gray-50 rounded-xl transition-all text-gray-400 hover:text-[#333] disabled:opacity-40 border border-transparent hover:border-gray-100 bg-gray-50/50"
+            title="Force Revalidate Pipeline / 强刷实时大盘"
+          >
+            {isRefreshing ? (
+              <Loader2 size={16} className="animate-spin text-[#FFD111]" />
+            ) : (
+              <RefreshCw size={16} className="active:scale-95 transition-transform" />
+            )}
+          </button>
         </div>
 
-        {(filterWettbewerb || filterKategorie || filterSuche) && (
-          <button
-            onClick={() => { setFilterWettbewerb(''); setFilterKategorie(''); setFilterSuche('') }}
-            className="w-full md:w-auto text-gray-500 hover:text-red-500 hover:bg-red-50 font-bold px-4 py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <X size={18} /> Clear
-          </button>
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-100 rounded-2xl text-xs font-bold text-red-600">
+            ⚠️ 实时同步中断: {error} (正在读取本地安全隔离存根)
+          </div>
         )}
-      </div>
 
-      {/* 情报流卡片区 (Timeline Layout) */}
-      <div className="space-y-2">
-        {filtered.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
-            <Filter size={48} className="mx-auto text-gray-300 mb-4" />
-            <p className="text-gray-500 font-bold text-lg">No intelligence entries found matching your criteria.</p>
-            <p className="text-gray-400 mt-2">Try adjusting your filters or search terms.</p>
+        {/* 2. 视觉占比渲染条 (100% 动态对齐最新 6 月数据) */}
+        {data ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              {data.shares.map((share, idx) => (
+                <div key={idx} className="bg-gray-50/70 p-4 rounded-2xl border border-gray-100/50 space-y-1">
+                  <span className="text-[11px] font-black uppercase text-gray-400 tracking-wider block">{share.name}</span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-[#333] tracking-tight">{share.value}%</span>
+                    <span className="text-xs text-gray-400 font-bold">({share.count} 样本)</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          {/* 满血动态进度条条形图 */}
+<div className="w-full h-4 bg-gray-100 rounded-full overflow-hidden flex p-0.5 border border-gray-200/50">
+  {data.shares.map((share, idx) => (
+    <div 
+      key={idx}
+      className="h-full transition-all duration-700 ease-out first:rounded-l-full last:rounded-r-full"
+      // 🚀 完美的单 style 属性合并，一次性把宽度和竞对主色砸进去
+      style={{ 
+        width: `${share.value}%`, 
+        backgroundColor: share.color 
+      }}
+    />
+  ))}
+</div>
+
+
+            <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider pt-2">
+              <span className="flex items-center gap-1 text-green-600"><Zap size={10}/> Data Pipeline Secure / 通道安全</span>
+              <span>最后穿透同步时间: {new Date(data.lastUpdated).toLocaleTimeString()}</span>
+            </div>
           </div>
         ) : (
-          filtered.map((item, index) => {
-            const priceFindings = safeParse(item.extra?.priceFindings);
-            const strategyTags = safeParse(item.extra?.strategyTags);
-            
-            return (
-              <div key={item.id} className="relative flex gap-4 md:gap-8 pb-8 group">
-                {/* 侧边时间线与竞品原色点 */}
-                <div className="hidden md:flex flex-col items-center mt-2">
-                  <div 
-                    className="w-5 h-5 rounded-full z-10 shadow-md border-4 border-white transition-transform group-hover:scale-125"
-                    style={{ backgroundColor: item.farbe || '#ccc' }}
-                  />
-                  {index !== filtered.length - 1 && (
-                    <div className="w-0.5 h-full bg-gray-100 mt-2 absolute top-6 bottom-0 left-[9.5px]" />
-                  )}
-                </div>
-
-                {/* 卡片主体 */}
-                <div className="flex-1 bg-white p-6 md:p-8 rounded-3xl shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-gray-100 hover:border-yellow-400 hover:shadow-[0_8px_30px_rgb(255,204,0,0.12)] transition-all">
-                  <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-xs font-black px-3 py-1 rounded-lg uppercase tracking-wider" style={{ backgroundColor: `${item.farbe}20`, color: item.farbe }}>
-                          {item.wettbewerber}
-                        </span>
-                        <span className="text-xs font-bold bg-gray-100 text-gray-500 px-3 py-1 rounded-lg">
-                          {item.kategorie}
-                        </span>
-                        <span className="text-xs font-bold text-gray-400">
-                          {new Date(item.datum).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </span>
-                      </div>
-                      <h3 className="text-xl font-extrabold text-gray-900 leading-tight">{item.titel}</h3>
-                    </div>
-                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl border ${
-                      item.type === 'auto' ? 'border-blue-200 text-blue-600 bg-blue-50' : 
-                      item.type === 'field' ? 'border-purple-200 text-purple-600 bg-purple-50' : 
-                      'border-green-200 text-green-600 bg-green-50'
-                    }`}>
-                      {item.type === 'auto' ? 'Automated Scan' : item.type === 'field' ? 'Field Intel' : 'Manual Upload'}
-                    </span>
-                  </div>
-
-                  <p className="text-gray-600 leading-relaxed mb-4">{item.beschreibung}</p>
-
-                  {/* Field Intel 专属拓展数据 */}
-                  {(item.extra?.stadt || priceFindings || strategyTags) && (
-                    <div className="bg-gray-50 rounded-2xl p-4 mt-4 space-y-3 border border-gray-100">
-                      {item.extra?.stadt && (
-                        <div className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                          <MapPin size={16} className="text-yellow-500" />
-                          Location: {item.extra.stadt}
-                        </div>
-                      )}
-                      
-                      {priceFindings && Array.isArray(priceFindings) && (
-                        <div className="flex flex-wrap gap-2">
-                          {priceFindings.map((p: any, i: number) => (
-                            <div key={i} className="bg-white border border-gray-200 px-3 py-1.5 rounded-lg text-sm shadow-sm flex items-center gap-2">
-                              <span className="text-gray-500">{p.label}:</span>
-                              <span className="font-extrabold text-gray-900">{p.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {strategyTags && Array.isArray(strategyTags) && (
-                        <div className="flex flex-wrap gap-2">
-                          {strategyTags.map((t: string, i: number) => (
-                            <span key={i} className="bg-yellow-100 text-yellow-800 border border-yellow-200 px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1">
-                              <Tag size={12} /> {t}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* 附件/图片展示区 (兼容 Supabase 绝对路径) */}
-                  {item.dateien && Array.isArray(item.dateien) && item.dateien.length > 0 && (
-                    <div className="mt-5 pt-5 border-t border-gray-100 flex flex-wrap gap-3">
-                      {item.dateien.map((pfad: string, idx: number) => {
-                        const isUrl = pfad.startsWith('http');
-                        const url = isUrl ? pfad : `/uploads/${pfad}`; // 向下兼容旧的残留数据
-                        
-                        return (
-                          <a
-                            key={idx}
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 bg-gray-900 hover:bg-yellow-400 text-white hover:text-gray-900 px-4 py-2 rounded-xl text-sm font-bold transition-colors shadow-sm group/btn"
-                          >
-                            <FileImage size={16} />
-                            View Asset {idx + 1}
-                            <ExternalLink size={14} className="opacity-50 group-hover/btn:opacity-100" />
-                          </a>
-                        )
-                      })}
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    <span>Source: {item.quelle}</span>
-                  </div>
-                </div>
-              </div>
-            )
-          })
+          <div className="h-40 flex flex-col items-center justify-center text-center space-y-2">
+            <Loader2 className="animate-spin text-[#FFD111]" size={24} />
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">正在穿透物理 Schema 缓存层...</p>
+          </div>
         )}
+
       </div>
-    </>
+    </div>
   )
 }

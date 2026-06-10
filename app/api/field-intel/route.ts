@@ -21,10 +21,14 @@ export async function POST(req: NextRequest) {
 
     const file = files[0]
 
-    // 1. 读取文件并转换为 Base64 格式（用于喂给 Vision 多模态模型）
+    // 1. 读取文件并转换为标准的 Base64 字符串
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
-    const base64Image = buffer.toString('base64')
+    let base64Image = buffer.toString('base64')
+    
+    // 🛡️ 安全清洗：确保 Base64 字符串内部没有夹带多余的 Data URL 头部信息
+    base64Image = base64Image.replace(/^data:image\/\w+;base64,/, '')
+    
     const mimeType = file.type || 'image/jpeg'
 
     // 2. 上传图片到 Supabase Storage
@@ -42,14 +46,13 @@ export async function POST(req: NextRequest) {
     const competitorName = competitorId === '1' ? 'KeeTa' : 'iFood'
 
     // ==========================================
-    // 🧠 3. 战略级 AI 像素视觉硬核精算引擎 (物理识图重构)
+    // 🧠 3. 战略级 AI 像素视觉硬核精算引擎 (Vision Ingestion 修正)
     // ==========================================
     let aiSummary = "AI analysis failed, but record was saved."
     const apiKey = process.env.DEEPSEEK_API_KEY
     
     if (apiKey) {
       try {
-        // 🔥 施加高压统治的 System Prompt，逼迫大模型死盯像素，禁止脑补
         const systemPrompt = `你现在是 99Food 部署在拉美前线的最高阶“AI 视觉情报精算引擎（AI Vision Strategic Engine）”。
 你接入该系统的核心任务是：突破人眼的局限，像素级深度解构竞对（iFood、KeeTa、Rappi）的客户端截图，提取出高机密的补贴手段和价格欺诈/心理学策略。
 
@@ -82,12 +85,19 @@ export async function POST(req: NextRequest) {
 - Operation Tags: ${tags}
 - Hand-written Field Notes by Local Staff: "${notes}"`
 
-        // 🚀 核心重构：调用多模态 Vision 模型，并将图片 Base64 塞入消息队列
+        // 🚀 核心对齐：采用通用多模态消息体，组装绝对标准的图片数据载荷
+        const imagePayloadUrl = `data:${mimeType};base64,${base64Image}`
+
         const dsResponse = await fetch('https://api.deepseek.com/chat/completions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${apiKey}` 
+          },
           body: JSON.stringify({
-            model: "deepseek-vision", // <-- 切换为官方视觉多模态模型
+            // 💡 提示：如果使用官方标准多模态，请确保你的 API Key 对应的账户开通了视觉模型权限
+            // 如果 deepseek 侧模型网关有微调，可根据官方最新公告将此处模型名改为 "deepseek-chat" 或 "deepseek-vl"
+            model: "deepseek-chat", 
             messages: [
               { role: "system", content: systemPrompt },
               {
@@ -97,14 +107,14 @@ export async function POST(req: NextRequest) {
                   {
                     type: "image_url",
                     image_url: {
-                      url: `data:${mimeType};base64,${base64Image}` // <-- 物理输送图片 Base64
+                      url: imagePayloadUrl // 灌入干净清洗后的 Data URL
                     }
                   }
                 ]
               }
             ],
-            temperature: 0.2, // 调低随机度，确保严谨看图说话
-            max_tokens: 1500
+            temperature: 0.1, 
+            max_tokens: 2000
           }),
           signal: AbortSignal.timeout(30000) 
         })
@@ -114,10 +124,11 @@ export async function POST(req: NextRequest) {
           aiSummary = dsData.choices[0].message.content.trim()
         } else {
           const errText = await dsResponse.text()
-          aiSummary = `AI Core Error: ${dsResponse.status}. Unable to complete vision tactical render.`
+          // 打印出详细的错误文本，如果是权限或模型名问题，能在日志一目了然
+          aiSummary = `AI Core Error: ${dsResponse.status}. Raw Response: ${errText.substring(0, 150)}`
         }
-      } catch (aiError) {
-        aiSummary = "AI Strategic Pipeline vision-ingestion timeout or connection density error."
+      } catch (aiError: any) {
+        aiSummary = `AI Strategic Pipeline vision error: ${aiError.message || aiError}`
       }
     } else {
       aiSummary = "AI Core API Key configuration error in the current deployment environment."
@@ -141,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     if (fieldError) throw fieldError
 
-    // 🚀 5. 满血联动：同步写入 materials 素材库，把勾选的高颗粒度结构化标签完完整整带过去
+    // 5. 同步写入 materials 素材库
     await supabase.from('materials').insert([{
       titel: `[Field Intel] ${title}`,
       beschreibung: `城市商圈: ${city}\n触达场景: ${screenType}\n用户分层: ${userProfile}\n核心标签: ${tags}\n前线手记: ${notes}\n\n${aiSummary}`,

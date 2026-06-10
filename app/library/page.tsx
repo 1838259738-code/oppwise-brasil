@@ -61,7 +61,9 @@ export default function MaterialLibrary() {
                 INTELLIGENCE HUB
               </h2>
               <p className="text-gray-400 text-xs font-medium mt-1.5 max-w-xs">
-                出于对已有材料的保护，请输入密码后继续查看后续内容。
+                请输入密码后继续查看后续内容。  
+                Please enter password to check this page.   
+                Please understand that we need to protect data from other company. 
               </p>
             </div>
           </div>
